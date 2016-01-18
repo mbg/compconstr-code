@@ -1,0 +1,33 @@
+--------------------------------------------------------------------------------
+-- Compiler for the STG Language                                              --
+-- By Michael B. Gale (michael.gale@cl.cam.ac.uk)                             --
+--------------------------------------------------------------------------------
+
+module Pretty (
+    module Text.PrettyPrint,
+
+    PP(..),
+    angulars,
+    arrow
+) where
+
+--------------------------------------------------------------------------------
+
+import Text.PrettyPrint
+
+--------------------------------------------------------------------------------
+
+class PP a where
+    pp :: a -> Doc
+
+instance (PP a, PP b) => PP (a,b) where
+    pp (x,y) = pp x <> pp y
+
+--------------------------------------------------------------------------------
+
+-- | Wrap document in <...>
+angulars :: Doc -> Doc
+angulars doc = char '<' <> doc <> char '>'
+
+arrow :: Doc
+arrow = text "->"
