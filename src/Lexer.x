@@ -33,7 +33,6 @@ $op        = [\+\-\*\/]
 @var       = $lower $idchar*
 @ctr       = $upper $idchar*
 @pint      = $digit+ "#"
-@pop       = $op "#"
 
 stg :-
     $ignore+                    { skip                                      }
@@ -57,10 +56,10 @@ stg :-
 
     @pint                       { makeTokenWith (TPrimInt . mkPrimInt)      }
 
-    "#+"                        { makeToken (TPrimOp PrimAdd)               }
-    "#-"                        { makeToken (TPrimOp PrimSub)               }
-    "#*"                        { makeToken (TPrimOp PrimMul)               }
-    "#\"                        { makeToken (TPrimOp PrimDiv)               }
+    "+#"                        { makeToken (TPrimOp PrimAdd)               }
+    "-#"                        { makeToken (TPrimOp PrimSub)               }
+    "*#"                        { makeToken (TPrimOp PrimMul)               }
+    "/#"                        { makeToken (TPrimOp PrimDiv)               }
 
     @var                        { makeTokenWith TVar                        }
 {
