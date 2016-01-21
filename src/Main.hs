@@ -26,8 +26,9 @@ main = do
     args <- parseCmdArgs
 
     -- complain if there are no inputs
-    when (null $ argsInputs args) $
-        die "No inputs!"
+    when (null $ argsInputs args) $ do
+        putStrLn "No inputs!"
+        exitFailure
 
     -- process inputs
     forM_ (argsInputs args) $ \input -> do

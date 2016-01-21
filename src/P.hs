@@ -7,6 +7,8 @@ module P where
 
 --------------------------------------------------------------------------------
 
+import Control.Applicative
+
 import Pretty
 import Token
 import Lexer
@@ -34,6 +36,8 @@ instance Monad P where
     (MkP m) >>= f = MkP $ \s -> case m s of
         Left err -> Left err
         Right r  -> let (MkP m') = f r in m' s
+
+    return = pure
 
 --------------------------------------------------------------------------------
 
