@@ -4,4 +4,17 @@ map = {} \n {f,xs} ->
             Cons {y,ys} -> let fy = {f,y} \u {} -> f {y};
                                mfy = {f,ys} \u {} -> map {f,ys};
                                in Cons {fy,mfy};
-            default     -> undefined {};
+            default     -> Nil {};
+
+zero = {} \n {} -> Zero {};
+succ = {} \n {n} -> Succ {n};
+
+one  = {} \n {} -> succ {zero};
+two  = {} \n {} -> succ {one};
+
+empty = {} \n {} -> Nil {};
+cons  = {} \n {x,xs} -> Cons {x,xs};
+
+list = {} \n {} -> cons {one, empty};
+
+main = {} \n {} -> map {succ, list};

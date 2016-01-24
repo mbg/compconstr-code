@@ -20,6 +20,9 @@ import Text.PrettyPrint
 class PP a where
     pp :: a -> Doc
 
+instance PP a => PP [a] where
+    pp = brackets . sep . punctuate comma . map pp
+
 instance (PP a, PP b) => PP (a,b) where
     pp (x,y) = pp x <> pp y
 
