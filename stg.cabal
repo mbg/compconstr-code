@@ -10,7 +10,7 @@ name:                stg
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.1.0.0
+version:             0.2.0.0
 
 -- A short (one-line) description of the package.
 -- synopsis:
@@ -67,6 +67,7 @@ executable stg
   -- Other library packages from which modules are imported.
   build-depends:       array >=0.5,
                        base >=4.7 && <4.9,
+                       containers >=0.5,
                        dlist >=0.7,
                        pretty >=1.1,
                        optparse-applicative >=0.12
