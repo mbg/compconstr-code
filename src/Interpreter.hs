@@ -166,7 +166,7 @@ patternMatchPrim k (alt@(PAlt v _ _) : alts)
 
 -- | `step c` performs a single transition from a configuration `c`
 step :: Config -> Maybe Config
--- Rules 1 and 10 (Application and variable bound to a prim. integer)
+-- Rules 1 and 11 (Application and variable bound to a prim. integer)
 step (Eval (AppE f xs pos) p, as, rs, us, h, env) = do
     -- get the value associated with `f'
     v <- val p env (VarAtom f pos)
@@ -176,9 +176,9 @@ step (Eval (AppE f xs pos) p, as, rs, us, h, env) = do
     case v of
         -- Rule 1 (Application)
         AddrV a -> undefined
-        -- Rule 10 (Variable bound to integer)
+        -- Rule 11 (Variable bound to integer)
         IntV k  -> undefined
--- Rules 2 and 15 (Enter Non-Updatable/Updatable Closure)
+-- Rules 2 and 16 (Enter Non-Updatable/Updatable Closure)
 step (Enter a, as, rs, us, h, env) = do
     -- find the closure at address `a' on the heap
     (Closure (MkLambdaForm vs u xs e) ws_f) <- M.lookup a h
@@ -191,7 +191,7 @@ step (Enter a, as, rs, us, h, env) = do
             -- Rule 2 (Enter Non-Updatable Closure)
             if length as >= length xs then do
                 undefined
-            -- Rule 17 (NotEnoughArguments Update)
+            -- Rule 18 (NotEnoughArguments Update)
             else do
                 -- the return stack should be empty
                 guard (null rs)
@@ -200,27 +200,28 @@ step (Enter a, as, rs, us, h, env) = do
                 case us of
                     []                        -> Nothing
                     ((as_u, rs_u, a_u) : us') -> undefined
-        -- Rule 15 (Enter Updatable Closure)
+        -- Rule 16 (Enter Updatable Closure)
         U -> undefined
--- Rule 3 (Let(Rec) expressions)
+-- Rule 3 (Let expressions)
 step (Eval (LetE bs e _) p, as, rs, us, h, env) = do
     undefined
+-- Rule 4 (LetRec expressions)
 step (Eval (LetRecE bs e _) p, as, rs, us, h, env) = do
     undefined
--- Rule 4 (Case expressions)
+-- Rule 5 (Case expressions)
 step (Eval (CaseE e alts _) p, as, rs, us, h, env) =
     undefined
--- Rule 5 (Constructors)
+-- Rule 6 (Constructors)
 -- NOTE: `CtrE' may be called something else for you, depending on what
 --       name you gave it in the previous exercise
 --step (Eval (CtrE c xs _) p, as, rs, us, h, env) = do
 --    undefined
--- Rule 6 (ReturnCon Case Match)
+-- Rule 7 (ReturnCon Case Match)
 step (ReturnCon c ws, as, (AlgAlts cs d, p) : rs, us, h, env) =
     -- pattern-match on `c' using `cs' to determine which rule needs
     -- to be applied
     case patternMatchCtr c cs of
-        -- Rule 6 (ReturnCon Case Match)
+        -- Rule 7 (ReturnCon Case Match)
         (Just (AAlt _ vs e _)) -> do
             let
                 -- construct a new local environment in which the pattern
@@ -229,9 +230,9 @@ step (ReturnCon c ws, as, (AlgAlts cs d, p) : rs, us, h, env) =
                 p' = undefined
             return (Eval e p', as, rs, us, h, env)
         Nothing                -> case d of
-            -- Rule 7 (ReturnCon Case Default)
+            -- Rule 8 (ReturnCon Case Default)
             (Default e _)      -> undefined
-            -- Rule 8 (ReturnCon Case DefaultVar)
+            -- Rule 9 (ReturnCon Case DefaultVar)
             (DefaultVar v e _) -> do
                 let
                     -- get the current size of the heap (we can use this
@@ -249,15 +250,15 @@ step (ReturnCon c ws, as, (AlgAlts cs d, p) : rs, us, h, env) =
                     -- an updated heap with the new closure added to it
                     h' = undefined
                 return (Eval e p', as, rs, us, h', env)
--- Rule 9 (Literals)
+-- Rule 10 (Literals)
 step (Eval (LitE k _) p, as, rs, us, h, env) =
     undefined
--- Rules 11,12,13 (ReturnInt)
+-- Rules 12,13,14 (ReturnInt)
 step (ReturnInt k, as, (PrimAlts cs d, p) : rs, us, h, env) =
     -- pattern-match on `k' using `cs' to determine which rule needs
     -- to be applied
     undefined
--- Rule 14 (Built-in operations)
+-- Rule 15 (Built-in operations)
 step (Eval (OpE op [x1, x2] _) p, as, rs, us, h, env) = do
     -- look up the values of `x1' and `x2'
     i1 <- val p M.empty x1
@@ -269,7 +270,7 @@ step (Eval (OpE op [x1, x2] _) p, as, rs, us, h, env) = do
         (IntV x, IntV y) -> undefined
         _                -> Nothing
     return (ReturnInt r, as, rs, us, h, env)
--- Rule 16 (Update triggered by an empty return stack)
+-- Rule 17 (Update triggered by an empty return stack)
 step (ReturnCon c ws, [], [], (as, rs, a) : us, h, env) = do
     let
         -- a list of distinct variables for every value in `ws'
