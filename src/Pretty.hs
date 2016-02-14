@@ -8,7 +8,8 @@ module Pretty (
 
     PP(..),
     angulars,
-    arrow
+    arrow,
+    var
 ) where
 
 --------------------------------------------------------------------------------
@@ -19,6 +20,9 @@ import Text.PrettyPrint
 
 class PP a where
     pp :: a -> Doc
+
+instance PP () where
+    pp () = empty
 
 instance PP a => PP [a] where
     pp = brackets . sep . punctuate comma . map pp
@@ -34,3 +38,6 @@ angulars doc = char '<' <> doc <> char '>'
 
 arrow :: Doc
 arrow = text "->"
+
+var :: String -> Doc
+var x = char '`' <> text x <> char '\''

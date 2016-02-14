@@ -1,0 +1,13 @@
+type Nat {} = Zero | Succ Nat;
+
+zero = {} \n {} -> Zero {};
+one = {} \n {} -> Succ {zero};
+two = {} \n {} -> Succ {one};
+
+toPrim = {} \n {n} -> case n {} of
+    Zero {}  -> 0#;
+    Succ {m} -> case toPrim {m} of
+        k -> +# {1#,k};
+    default  -> 9001#;
+
+main = {} \n {} -> toPrim {two};

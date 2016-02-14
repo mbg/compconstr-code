@@ -1,9 +1,19 @@
+type Bool {} = False | True;
+type Nat {} = Zero | Succ Nat;
+type List {a} = Nil | Cons a (List a);
+
+length = {} \n {xs} -> case xs {} of
+    Nil {} -> 0#;
+    Cons {y,ys} -> case length {ys} of  -- ret_Cons8
+        k -> +# {1#, k};
+    default -> 0#;
+
 map = {} \n {f,xs} ->
         case xs {} of
             Nil {}      -> Nil {};
             Cons {y,ys} -> let fy = {f,y} \u {} -> f {y};
                                mfy = {f,ys} \u {} -> map {f,ys};
-                               in Cons {fy,mfy};
+                           in Cons {fy,mfy}; -- ret_Cons2
             default     -> Nil {};
 
 zero = {} \n {} -> Zero {};
@@ -15,6 +25,13 @@ two  = {} \n {} -> succ {one};
 empty = {} \n {} -> Nil {};
 cons  = {} \n {x,xs} -> Cons {x,xs};
 
-list = {} \n {} -> cons {one, empty};
+list1 = {} \n {} -> cons {one, empty};
+list = {} \n {} -> cons {one, list1};
 
-main = {} \n {} -> map {succ, list};
+main = {} \n {} -> let sl = {} \u {} -> map {succ, list}; in length {sl};
+
+answer = {} \n {} -> 42#;
+
+checkAnswer = {} \n {} -> case answer {} of
+    42#     -> True {};
+    default -> False {};

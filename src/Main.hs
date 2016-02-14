@@ -13,6 +13,7 @@ import Data.Char (toLower)
 
 import System.Environment (withArgs)
 import System.Exit
+import System.FilePath
 import System.IO
 
 import Pretty
@@ -20,6 +21,8 @@ import Lexer
 import Parser
 import CmdArgs
 import Interpreter
+import TypeInference
+import CodeGen
 
 --------------------------------------------------------------------------------
 
@@ -77,14 +80,35 @@ main = do
             Left err  -> putStrLn err
             Right ast -> do
                 -- render the AST
-                putStrLn $ render $ pp ast
-                putStrLn ""
+                when (argsVerbose args) $ do
+                    putStrLn $ render $ pp ast
+                    putStrLn ""
 
-                -- reduce the entry point
+                -- interpret the program, if asked for
+                when (argsInterpret args) $ do
+                    putStrLn $ render $
+                        text "Evaluating" <+> text input <+> text "..."
+
+                    steps $ initialState ast (argsEntry args)
+
                 putStrLn $ render $
-                    text "Evaluating" <+> text input <+> text "..."
+                    text "Inferring types of" <+> text input <> text "..."
 
-                steps $ initialState ast (argsEntry args)
+                -- infer the types
+                case inferTypes ast of
+                    Left err   -> putStrLn $ render $ pp err
+                    Right (tast, l) -> do
+                        -- print diagnostic messages as well as the typed
+                        -- abstract syntax tree, if asked for
+                        when (argsDebug args) $ do
+                            putStrLn $ render $ vcat l
+                            putStrLn ""
+                        when (argsVerbose args) $ do
+                            putStrLn $ render $ pp tast
+                            putStrLn ""
+
+                        -- compile the program to C
+                        compile (input -<.> ".c") tast
 
     -- do nothing
     return ()

@@ -12,6 +12,7 @@ import Control.Monad
 import qualified Data.Map as M
 
 import Posn
+import Var
 import Pretty
 import Prim
 import AST
@@ -27,22 +28,20 @@ type GlEnv = M.Map String Addr
 
 -- | STG values.
 data Value
-      -- | An address value (a pointer).
     = AddrV Addr
-      -- | A primitive value (a non-pointer).
     | IntV PrimInt
 
 -- | Local environments map local binding names to values.
 type LocEnv = M.Map String Value
 
--- | STG closures consist of code (a lambda form) and free variables.
+-- | STG closures.
 data Closure
     = Closure LambdaForm [Value]
 
 -- | The heap contains closures, identified by memory addresses.
 type Heap = M.Map Addr Closure
 
--- | Different types of instructions to evaluate.
+-- |
 data Code
       -- | Evaluate an expression in an environment and apply its value to the
       --   arguments on the argument stack.
@@ -56,12 +55,7 @@ data Code
       -- | Return a primitive integer to the continuation on the return stack.
     | ReturnInt PrimInt
 
--- | The types of the three STG stacks:
---   * The argument stack contains values.
---   * The return stack contains continuations.
---   * The update stack contains update frames, cosisting of a saved argument
---     stack, return stack, and the address of the closure that is to be
---     updated.
+-- | The types of the three STG stacks.
 type ArgStack = [Value]
 type RetStack = [(Alts, LocEnv)]
 type UpdStack = [(ArgStack, RetStack, Addr)]
@@ -76,9 +70,9 @@ type Config = (Code, ArgStack, RetStack, UpdStack, Heap, GlEnv)
 --   in the local environment `p' and then the global environment `sig'.
 val :: LocEnv -> GlEnv -> Atom -> Maybe Value
 val p sig (LitAtom k _) = return $ IntV k
-val p sig (VarAtom v _) = case M.lookup v p of
+val p sig (VarAtom v _) = case M.lookup (varName v) p of
     (Just r) -> return r
-    Nothing  -> case M.lookup v sig of
+    Nothing  -> case M.lookup (varName v) sig of
         (Just r) -> return $ AddrV r
         Nothing  -> mzero
 
@@ -96,14 +90,14 @@ initialHeap n (MkBind g lf _ : bs) =
 initialEnv :: Int -> [Bind] -> GlEnv
 initialEnv n [] = M.empty
 initialEnv n (MkBind g lf _ : bs) =
-    M.insert g (Addr n) (initialEnv (n+1) bs)
+    M.insert (varName g) (Addr n) (initialEnv (n+1) bs)
 
 -- | `initialState p main' constructs the initial state of the STG machine for
 --   a program `p' where `main' is the name of the entry point.
 initialState :: Prog -> String -> Config
-initialState (MkProg bs) main = (Eval expr M.empty, [], [], [], h, env)
+initialState (MkProg _ bs) main = (Eval expr M.empty, [], [], [], h, env)
     where
-        expr = (AppE main [] NoPosn)
+        expr = (AppE (Var main NoPosn) [] NoPosn)
         h    = initialHeap 0 bs
         env  = initialEnv 0 bs
 
@@ -114,14 +108,12 @@ initialState (MkProg bs) main = (Eval expr M.empty, [], [], [], h, env)
 allocAddr :: LocEnv -> Int -> [Bind] -> LocEnv
 allocAddr p _ []                  = p
 allocAddr p n (MkBind x _ _ : bs) =
-    allocAddr (M.insert x (AddrV $ Addr n) p) (n+1) bs
+    allocAddr (M.insert (varName x) (AddrV $ Addr n) p) (n+1) bs
 
--- | `allocClosures p h n bs' extends the heap `h' with closures for the
---   bindings in `bs', starting with address `n'.
 allocClosures' :: LocEnv -> Heap -> Int -> [Bind] -> Maybe Heap
 allocClosures' p_rhs h _ [] = return h
 allocClosures' p_rhs h n (MkBind _ lf@(MkLambdaForm fvs uf vs e) _ : bs) = do
-    vs' <- mapM (flip M.lookup p_rhs) vs
+    vs' <- mapM (flip M.lookup p_rhs . varName) vs
     allocClosures' p_rhs (M.insert (Addr n) (Closure lf vs') h) (n+1) bs
 
 -- | `allocClosures p h bs' adds closures for all bindings in `bs' to the
@@ -134,8 +126,6 @@ allocClosures p h bs = do
     h' <- allocClosures' p h n bs
     return (p', h')
 
--- | `allocClosuresRec p h bs' adds closures for the recursive bindings in
---   `bs' to a heap `h' and adds address mappings to the local environment `p'.
 allocClosuresRec :: LocEnv -> Heap -> [Bind] -> Maybe (LocEnv, Heap)
 allocClosuresRec p h bs = do
     let
@@ -146,16 +136,12 @@ allocClosuresRec p h bs = do
 
 --------------------------------------------------------------------------------
 
--- | `patternMatchCtr c cs' tries to find a case alternative in `cs' which
---   matches the constructor `c'.
 patternMatchCtr :: String -> [AlgAlt] -> Maybe AlgAlt
 patternMatchCtr c [] = Nothing
 patternMatchCtr c (alt@(AAlt ctr _ _ _) : alts)
     | c == ctr  = Just alt
     | otherwise = patternMatchCtr c alts
 
--- | `patternMatchPrim k cs' tries to find a case alternative in `cs' which
---   matches the prim. integer `k'.
 patternMatchPrim :: PrimInt -> [PrimAlt] -> Maybe PrimAlt
 patternMatchPrim k [] = Nothing
 patternMatchPrim k (alt@(PAlt v _ _) : alts)
@@ -166,122 +152,141 @@ patternMatchPrim k (alt@(PAlt v _ _) : alts)
 
 -- | `step c` performs a single transition from a configuration `c`
 step :: Config -> Maybe Config
--- Rules 1 and 11 (Application and variable bound to a prim. integer)
 step (Eval (AppE f xs pos) p, as, rs, us, h, env) = do
     -- get the value associated with `f'
     v <- val p env (VarAtom f pos)
 
-    -- figure out whether the value `v' is an address or a prim. integer
-    -- to determine which rule to apply
     case v of
         -- Rule 1 (Application)
-        AddrV a -> undefined
-        -- Rule 11 (Variable bound to integer)
-        IntV k  -> undefined
--- Rules 2 and 16 (Enter Non-Updatable/Updatable Closure)
+        AddrV a -> do
+            -- get the values associated with the arguments `xs'
+            as' <- mapM (val p env) xs
+            -- enter the closure at `a'
+            return (Enter a, as' ++ as, rs, us, h, env)
+        -- Rule 10 (Variable bound to integer)
+        IntV k -> do
+            return (ReturnInt k, as, rs, us, h, env)
+-- Rules 2 and 15 (Enter Non-Updatable/Updatable Closure)
 step (Enter a, as, rs, us, h, env) = do
     -- find the closure at address `a' on the heap
     (Closure (MkLambdaForm vs u xs e) ws_f) <- M.lookup a h
 
     -- determine whether the closure is updatable or not
     case u of
-        N ->
-            -- ensure that there are at least as many items on the argument
-            -- stack as are expected by the closure
+        N -> do
+            -- ensure that there are at least as many items on the argument stack
+            -- as are expected by the closure
             -- Rule 2 (Enter Non-Updatable Closure)
             if length as >= length xs then do
-                undefined
-            -- Rule 18 (NotEnoughArguments Update)
+                let
+                    -- remove the items from the argument stack
+                    as'  = drop (length xs) as
+
+                    -- take the items from the argument stack
+                    ws_a = take (length xs) as
+
+                    -- create a local environment for the closure
+                    p    = M.fromList $
+                        zip (map varName vs) ws_f ++ zip (map varName xs) ws_a
+
+                -- evaluate the body `e' in a local environment `p'
+                return (Eval e p, as', rs, us, h, env)
+            -- Rule 17 (NotEnoughArguments Update)
             else do
                 -- the return stack should be empty
                 guard (null rs)
 
-                -- try to obtain an update frame from the update stack
                 case us of
-                    []                        -> Nothing
-                    ((as_u, rs_u, a_u) : us') -> undefined
-        -- Rule 16 (Enter Updatable Closure)
-        U -> undefined
--- Rule 3 (Let expressions)
+                    []                        -> mzero
+                    ((as_u, rs_u, a_u) : us') -> do
+                        let
+                            xs1 = take (length as) xs
+                            xs2 = drop (length as) xs
+                            lf  = MkLambdaForm (vs ++ xs1) N xs2 e
+                            h_u = M.insert a_u (Closure lf (ws_f ++ as)) h
+
+                        return (Enter a, as ++ as_u, rs_u, us, h_u, env)
+        U -> do
+            let
+                p = M.fromList $ zip (map varName vs) ws_f
+
+            -- evaluate the body `e' in a local environment `p'
+            return (Eval e p, [], [], (as,rs,a) : us, h, env)
+-- Rule 3 (Let(Rec) expressions)
 step (Eval (LetE bs e _) p, as, rs, us, h, env) = do
-    undefined
--- Rule 4 (LetRec expressions)
+    (p',h') <- allocClosures p h bs
+    return (Eval e p', as, rs, us, h', env)
 step (Eval (LetRecE bs e _) p, as, rs, us, h, env) = do
-    undefined
--- Rule 5 (Case expressions)
-step (Eval (CaseE e alts _) p, as, rs, us, h, env) =
-    undefined
--- Rule 6 (Constructors)
--- NOTE: `CtrE' may be called something else for you, depending on what
---       name you gave it in the previous exercise
---step (Eval (CtrE c xs _) p, as, rs, us, h, env) = do
---    undefined
--- Rule 7 (ReturnCon Case Match)
-step (ReturnCon c ws, as, (AlgAlts cs d, p) : rs, us, h, env) =
-    -- pattern-match on `c' using `cs' to determine which rule needs
-    -- to be applied
+    (p',h') <- allocClosuresRec p h bs
+    return (Eval e p', as, rs, us, h', env)
+-- Rule 4 (Case expressions)
+step (Eval (CaseE e alts _) p, as, rs, us, h, env) = do
+    return (Eval e p, as, (alts,p) : rs, us, h, env)
+-- Rule 5 (Constructors)
+step (Eval (CtrE c xs _) p, as, rs, us, h, env) = do
+    args <- mapM (val p env) xs
+    return (ReturnCon c args, as, rs, us, h, env)
+-- Rule 6 (ReturnCon Case Match)
+step (ReturnCon c ws, as, (AlgAlts cs d, p) : rs, us, h, env) = do
     case patternMatchCtr c cs of
-        -- Rule 7 (ReturnCon Case Match)
+        -- Rule 6 (ReturnCon Case Match)
         (Just (AAlt _ vs e _)) -> do
             let
-                -- construct a new local environment in which the pattern
-                -- variables `vs' are bound to the arguments of the
-                -- constructor `ws`.
-                p' = undefined
+                p' = p `M.union` M.fromList (zip (map varName vs) ws)
             return (Eval e p', as, rs, us, h, env)
         Nothing                -> case d of
-            -- Rule 8 (ReturnCon Case Default)
-            (Default e _)      -> undefined
-            -- Rule 9 (ReturnCon Case DefaultVar)
+            -- Rule 7 (ReturnCon Case Default)
+            (Default e _)      ->
+                return (Eval e p, as, rs, us, h, env)
+            -- Rule 8 (ReturnCon Case DefaultVar)
             (DefaultVar v e _) -> do
                 let
-                    -- get the current size of the heap (we can use this
-                    -- to calculate the next available memory address, since
-                    -- we never remove anything from the heap)
                     n  = M.size h
-                    -- construct a new local environment in which the
-                    -- variable `v' maps to some memory address
-                    p' = undefined
-                    -- a list of distinct variables for every argument of
-                    -- the constructor
-                    vs = ['v' : show i | i <- [0..length ws]]
-                    -- a lambda form for the new closure
-                    lf = undefined
-                    -- an updated heap with the new closure added to it
-                    h' = undefined
+                    p' = M.insert (varName v) (AddrV $ Addr n) p
+                    vs = [Var ('v' : show i) NoPosn | i <- [1..length ws]]
+                    zs = map (flip VarAtom NoPosn) vs
+                    lf = MkLambdaForm vs N [] (CtrE c zs NoPosn)
+                    h' = M.insert (Addr n) (Closure lf ws) h
                 return (Eval e p', as, rs, us, h', env)
--- Rule 10 (Literals)
-step (Eval (LitE k _) p, as, rs, us, h, env) =
-    undefined
--- Rules 12,13,14 (ReturnInt)
-step (ReturnInt k, as, (PrimAlts cs d, p) : rs, us, h, env) =
-    -- pattern-match on `k' using `cs' to determine which rule needs
-    -- to be applied
-    undefined
--- Rule 15 (Built-in operations)
+-- Rule 9 (Literals)
+step (Eval (LitE k _) p, as, rs, us, h, env) = do
+    return (ReturnInt k, as, rs, us, h, env)
+-- Rules 11,12,13 (ReturnInt)
+step (ReturnInt k, as, (PrimAlts cs d, p) : rs, us, h, env) = do
+    case patternMatchPrim k cs of
+        -- Rule 11 (ReturnInt Case Match)
+        (Just (PAlt _ e _)) -> do
+            return (Eval e p, as, rs, us, h, env)
+        Nothing -> case d of
+            -- Rule 12 (ReturnInt Case DefaultVar)
+            (DefaultVar v e _) -> do
+                let
+                    p' = M.insert (varName v) (IntV k) p
+                return (Eval e p', as, rs, us, h, env)
+            -- Rule 13 (ReturnInt Case Default)
+            (Default e _)      -> do
+                return (Eval e p, as, rs, us, h, env)
+-- Rule 14 (Built-in operations)
 step (Eval (OpE op [x1, x2] _) p, as, rs, us, h, env) = do
-    -- look up the values of `x1' and `x2'
     i1 <- val p M.empty x1
     i2 <- val p M.empty x2
-
-    -- check that both values are primitive integer values before
-    -- calculating the result of the built-in operation and binding it to `r'
     r  <- case (i1,i2) of
-        (IntV x, IntV y) -> undefined
-        _                -> Nothing
+        (IntV x, IntV y) -> case op of
+            PrimAdd -> return (x+y)
+            PrimSub -> return (x-y)
+            PrimMul -> return (x*y)
+            PrimDiv -> return (x `div` y)
+        _ -> mzero
     return (ReturnInt r, as, rs, us, h, env)
--- Rule 17 (Update triggered by an empty return stack)
+-- Rule 16 (EmptyReturnStack Update)
 step (ReturnCon c ws, [], [], (as, rs, a) : us, h, env) = do
     let
-        -- a list of distinct variables for every value in `ws'
-        vs = ['v' : show i | i <- [0..length ws]]
-        -- construct the lambda form for the new closure
-        lf = undefined
-        -- construct an updated heap
-        h' = undefined
-    -- transition to the new configuration
+        vs = [Var ('v' : show i) NoPosn | i <- [1..length ws]]
+        zs = map (flip VarAtom NoPosn) vs
+        lf = MkLambdaForm vs N [] (CtrE c zs NoPosn)
+        h' = M.insert a (Closure lf ws) h
     return (ReturnCon c ws, as, rs, us, h', env)
--- If no pattern matches, we are stuck:
+-- Otherwise, we are stuck:
 step _ = Nothing
 
 --------------------------------------------------------------------------------

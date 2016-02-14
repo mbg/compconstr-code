@@ -1,0 +1,11 @@
+type Bool {} = True | False;
+
+true = {} \n {} -> True {};
+false = {} \n {} -> False {};
+
+test = {} \n {b} -> case b {} of
+    True {} -> 0#;
+    False {} -> 1#;
+    default -> 2#;
+
+main = {} \n {} -> test {false};

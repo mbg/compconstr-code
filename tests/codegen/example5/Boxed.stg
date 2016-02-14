@@ -1,0 +1,22 @@
+
+-- boxed integers
+type Int {} = MkInt Int#;
+
+zero = {} \n {} -> MkInt {0#};
+one = {} \n {} -> MkInt {1#};
+two = {} \n {} -> MkInt {2#};
+
+-- addition on boxed integers
+plus = {} \n {e1,e2} -> case e1 {} of
+    MkInt {x} -> case e2 {} of
+        MkInt {y} -> case +# {x,y} of
+            k -> MkInt {k};
+        default -> MkInt {108#};
+    default -> MkInt {108#};
+
+-- unboxing
+unbox = {} \n {b} -> case b {} of
+    MkInt {x} -> +# {x,0#}; -- STG doesn't like just `x {}' here.
+    default   -> 108#;
+
+main = {} \n {} -> let r = {} \n {} -> plus {one,two}; in unbox {r};

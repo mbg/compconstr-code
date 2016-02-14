@@ -36,6 +36,7 @@ $op        = [\+\-\*\/]
 
 stg :-
     $ignore+                    { skip                                      }
+    "--" .*                     { skip                                      }
 
     "="                         { makeToken TEquals                         }
     ";"                         { makeToken TSemicolon                      }
@@ -43,6 +44,9 @@ stg :-
     "{"                         { makeToken TCurlyL                         }
     "}"                         { makeToken TCurlyR                         }
     ","                         { makeToken TComma                          }
+    "|"                         { makeToken TBar                            }
+    "("                         { makeToken TParL                           }
+    ")"                         { makeToken TParR                           }
 
     "let"                       { makeToken TLet                            }
     "letrec"                    { makeToken TLetRec                         }
@@ -50,6 +54,9 @@ stg :-
     "in"                        { makeToken TIn                             }
     "of"                        { makeToken TOf                             }
     "default"                   { makeToken TDefault                        }
+    "type"                      { makeToken TType                           }
+
+    "Int#"                      { makeToken TIntTy                          }
 
     "\u"                        { makeToken TUpdatable                      }
     "\n"                        { makeToken TNotUpdatable                   }
@@ -62,15 +69,13 @@ stg :-
     "/#"                        { makeToken (TPrimOp PrimDiv)               }
 
     @var                        { makeTokenWith TVar                        }
+    @ctr                        { makeTokenWith TCtr                        }
 {
---------------------------------------------------------------------------------
 
 type TokenP = (Token, AlexPosn)
 
 instance PP AlexPosn where
     pp (AlexPn a l c) = angulars $ int l <> colon <> int c
-
---------------------------------------------------------------------------------
 
 makeTokenWith :: (String -> Token) -> AlexAction TokenP
 makeTokenWith t (p, _, _, xs) n = return $ (t (take n xs), p)

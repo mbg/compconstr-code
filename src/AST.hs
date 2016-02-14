@@ -8,127 +8,194 @@ module AST where
 --------------------------------------------------------------------------------
 
 import Posn
+import Var
 import Pretty
 import Prim
+import Types
 
 --------------------------------------------------------------------------------
-
--- | The type of variables.
-type Var = String
 
 -- | The type of constructors.
 type Ctr = String
 
+-- | Programs with position annotations, for backwards compatbility.
+type Prog = AST Posn
+
 -- | Programs.
-newtype Prog = MkProg { progBinds :: [Bind] }
+data AST a = MkProg {
+    progTyBinds :: [TyBind],
+    progBinds   :: [ABind a]
+}
+
+-- | Type decls.
+data TyBind = MkTyBind {
+    tyBindName   :: Ctr,
+    tyBindParams :: [Var],
+    tyBindRHS    :: [AlgCtr],
+    tyBindAnn    :: Posn
+}
+
+-- | Data constructors.
+data AlgCtr = MkAlgCtr {
+    algCtrName   :: Ctr,
+    algCtrParams :: [Type],
+    algCtrAnn    :: Posn
+}
+
+-- | Bindings with position annotations, for backwards compatbility.
+type Bind = ABind Posn
 
 -- | Bindings.
-data Bind = MkBind {
-    bindName :: Var,
-    bindLF   :: LambdaForm,
-    bindPosn :: Posn
-}
+data ABind a = MkBind {
+    bindName :: AVar a,
+    bindLF   :: ALambdaForm a,
+    bindAnn  :: a
+} deriving Functor
+
+-- | Lambda forms with position annotations, for backwards compatbility.
+type LambdaForm = ALambdaForm Posn
 
 -- | Lambda forms.
-data LambdaForm = MkLambdaForm {
-    lfFreeVars :: [Var],
+data ALambdaForm a = MkLambdaForm {
+    lfFreeVars :: [AVar Posn],
     lfFlag     :: UpdateFlag,
-    lfVars     :: [Var],
-    lfExpr     :: Expr
-}
+    lfVars     :: [AVar a],
+    lfExpr     :: AExpr a
+} deriving Functor
 
+-- | Update flags.
 data UpdateFlag = U | N
 
-data Expr
+-- | Expressions with position annotations, for backwards compatbility.
+type Expr = AExpr Posn
+
+-- | Expressions.
+data AExpr a
     = LetE {
-        letBinds :: [Bind],
-        letExpr  :: Expr,
-        letPosn  :: Posn
+        letBinds :: [ABind a],
+        letExpr  :: AExpr a,
+        exprAnn  :: a
     }
     | LetRecE {
-        letRecBinds :: [Bind],
-        letRecExpr  :: Expr,
-        letRecPosn  :: Posn
+        letRecBinds :: [ABind a],
+        letRecExpr  :: AExpr a,
+        exprAnn  :: a
     }
     | CaseE {
-        caseExpr :: Expr,
-        caseAlts :: Alts,
-        casePosn :: Posn
+        caseExpr :: AExpr a,
+        caseAlts :: AAlts a,
+        exprAnn  :: a
     }
     | AppE {
-        appFun   :: Var,
-        appAtoms :: [Atom],
-        appPosn  :: Posn
+        appFun   :: AVar a,
+        appAtoms :: [AAtom a],
+        exprAnn  :: a
+    }
+    | CtrE {
+        ctrName  :: Ctr,
+        ctrAtoms :: [AAtom a],
+        exprAnn  :: a
     }
     | OpE {
         opType  :: PrimOp,
-        opAtoms :: [Atom],
-        opPosn  :: Posn
+        opAtoms :: [AAtom a],
+        exprAnn  :: a
     }
     | LitE {
         litVal  :: PrimInt,
-        litPosn :: Posn
-    }
+        exprAnn :: a
+    } deriving Functor
 
-data Alts
-    = AlgAlts [AlgAlt] DefaultAlt
-    | PrimAlts [PrimAlt] DefaultAlt
+-- | Case alternatives for backwards compatbility.
+type Alts = AAlts Posn
 
-data AlgAlt = AAlt {
+-- | Case alternatives.
+data AAlts a
+    = AlgAlts [AAlgAlt a] (ADefaultAlt a)
+    | PrimAlts [APrimAlt a] (ADefaultAlt a)
+    deriving Functor
+
+-- | Algebraic alternatives for backwards compatbility.
+type AlgAlt = AAlgAlt Posn
+
+-- | Algebraic alternatives.
+data AAlgAlt a = AAlt {
     aaltCtr  :: Ctr,
-    aaltVars :: [Var],
-    aaltExor :: Expr,
-    aaltPosn :: Posn
-}
+    aaltVars :: [AVar a],
+    aaltExpr :: AExpr a,
+    aaltAnn  :: a
+} deriving Functor
 
-data PrimAlt = PAlt {
+-- | Primitive alternatives for backwards compatbility.
+type PrimAlt = APrimAlt Posn
+
+-- | Primitive alternatives.
+data APrimAlt a = PAlt {
     paltVal  :: PrimInt,
-    paltExpr :: Expr,
-    paltPosn :: Posn
-}
+    paltExpr :: AExpr a,
+    paltAnn  :: a
+} deriving Functor
 
-data DefaultAlt
+-- | Default alternatives for backwards compatbility.
+type DefaultAlt = ADefaultAlt Posn
+
+-- | Default alternatives.
+data ADefaultAlt a
     = DefaultVar {
-        defaultVar  :: Var,
-        defaultExpr :: Expr,
-        defaultPosn :: Posn
+        defaultVar  :: AVar a,
+        defaultExpr :: AExpr a,
+        defaultAnn  :: a
     }
     | Default {
-        defaultExpr :: Expr,
-        defaultPosn :: Posn
-    }
+        defaultExpr :: AExpr a,
+        defaultAnn  :: a
+    } deriving Functor
+
+-- | Atoms for backwards compatbility.
+type Atom = AAtom Posn
 
 -- | Atoms.
-data Atom
+data AAtom a
     = VarAtom {
-        atomVar  :: Var,
-        atomPosn :: Posn
+        atomVar :: AVar a,
+        atomAnn :: a
     }
     | LitAtom {
-        atomVal  :: PrimInt,
-        atomPosn :: Posn
-    }
+        atomVal :: PrimInt,
+        atomAnn :: a
+    } deriving Functor
 
 --------------------------------------------------------------------------------
 
 -- | `ppBinds bs' pretty-prints the bindings in `bs'.
-ppBinds :: [Bind] -> Doc
+ppBinds :: PP a => [ABind a] -> Doc
 ppBinds = vcat . punctuate semi . map pp
 
--- | `ppVars vs' pretty-prints a set of variables `vs'.
-ppVars :: [Var] -> Doc
-ppVars = braces . hcat . punctuate comma . map text
-
-ppAtoms :: [Atom] -> Doc
+ppAtoms :: PP a => [AAtom a] -> Doc
 ppAtoms = braces . hcat . punctuate comma . map pp
 
-instance PP Prog where
-    pp (MkProg bs) = vcat (map pp bs)
+instance PP a => PP (AST a) where
+    pp (MkProg ts bs) = vcat (map pp ts) $$ vcat (map pp bs)
 
-instance PP Bind where
-    pp (MkBind v lf pos) = pp pos <> text v <+> equals <+> pp lf
+instance PP TyBind where
+    pp (MkTyBind ctr ps rhs ann) =
+        pp ann <>
+        text "type" <+>
+        text ctr <+>
+        ppVars ps <+>
+        equals <+>
+        sep (punctuate (char '|') (map pp rhs))
 
-instance PP LambdaForm where
+instance PP AlgCtr where
+    pp (MkAlgCtr ctr ps ann) =
+        pp ann <>
+        text ctr <+>
+        hsep (map pp ps)
+
+instance PP a => PP (ABind a) where
+    pp (MkBind v lf pos) = pp pos <> pp v <+> equals <+> pp lf
+
+instance PP a => PP (ALambdaForm a) where
     pp (MkLambdaForm fvs uf vs expr) =
         ppVars fvs <+> pp uf <+> ppVars vs <+> arrow <+> pp expr
 
@@ -136,7 +203,7 @@ instance PP UpdateFlag where
     pp U = text "\\u"
     pp N = text "\\n"
 
-instance PP Expr where
+instance PP a => PP (AExpr a) where
     pp (LetE bs expr pos) =
         pp pos <> text "let" $$ ppBinds bs <+> text "in" <+> pp expr
     pp (LetRecE bs expr pos) =
@@ -144,29 +211,31 @@ instance PP Expr where
     pp (CaseE expr alts pos) =
         pp pos <> text "case" <+> pp expr <+> text "of" $$ pp alts
     pp (AppE var args pos) =
-        pp pos <> text var <+> ppAtoms args
+        pp pos <> pp var <+> ppAtoms args
+    pp (CtrE ctr args pos) =
+        pp pos <> text ctr <+> ppAtoms args
     pp (OpE op args pos) =
         pp pos <> pp op <+> ppAtoms args
     pp (LitE val pos) =
         pp pos <> pp val
 
-instance PP Alts where
+instance PP a => PP (AAlts a) where
     pp (AlgAlts aalts def)  = vcat (map pp aalts) $$ pp def
     pp (PrimAlts palts def) = vcat (map pp palts) $$ pp def
 
-instance PP AlgAlt where
+instance PP a => PP (AAlgAlt a) where
     pp (AAlt ctr vs expr pos) =
-        pp pos <> text ctr <+> hsep (map text vs) <+> arrow <+> pp expr <> semi
+        pp pos <> text ctr <+> hsep (map pp vs) <+> arrow <+> pp expr <> semi
 
-instance PP PrimAlt where
+instance PP a => PP (APrimAlt a) where
     pp (PAlt lit expr pos) = pp pos <> pp lit <+> arrow <+> pp expr <> semi
 
-instance PP DefaultAlt where
+instance PP a => PP (ADefaultAlt a) where
     pp (DefaultVar var expr pos) =
-        pp pos <> text var <+> arrow <+> pp expr
+        pp pos <> pp var <+> arrow <+> pp expr
     pp (Default expr pos)        =
         pp pos <> text "default" <+> arrow <+> pp expr
 
-instance PP Atom where
-    pp (VarAtom var pos) = pp pos <> text var
+instance PP a => PP (AAtom a) where
+    pp (VarAtom var pos) = pp pos <> pp var
     pp (LitAtom lit pos) = pp pos <> pp lit
