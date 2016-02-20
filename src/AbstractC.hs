@@ -209,6 +209,22 @@ localInfoTable tpl (FunctionSym f) = lift $ lift $ do
     modify $ \s -> s { cInfoTbls = M.insert n [f] (cInfoTbls s) }
     return (InfoTblSym n)
 
+withNewLocalFunction ::
+    String ->
+    PolyType ->
+    String ->
+    CodeGenFn () ->
+    CodeGenFn (Symbol Function)
+withNewLocalFunction sym pt tpl k = do
+    i <- lift $ lift fresh
+    let
+        n = tpl ++ show i
+    st <- get
+    (_,stmts) <- lift $ lift $ evalStateT (runWriterT $
+        debug n >> loadLocalFromSymbol (RegisterSym NodeR) sym pt >>= const k) initialFn
+    lift $ lift $ modify $ \s -> s { cFuns = M.insert n stmts (cFuns s) }
+    return $ FunctionSym n
+
 withNewFunctionInScope :: String -> CodeGenFn () -> CodeGenFn (Symbol Function)
 withNewFunctionInScope tpl k = do
     i <- lift $ lift fresh

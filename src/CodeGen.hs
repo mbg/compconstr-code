@@ -209,10 +209,35 @@ allocClosures (MkBind (Var n _) lf t : bs) = do
     let
         s = closureSize lf
 
+    -- write the closure on the heap
     -- YOUR CODE HERE
 
     -- continue with the other bindings
     allocClosures bs
+
+-- | `allocRecClosures bs' allocates dynamic closures on the STG heap for all
+--   bindings in `bs'
+allocRecClosures :: [ABind PolyType] -> CodeGenFn ()
+allocRecClosures [] = return ()
+allocRecClosures (MkBind (Var n _) lf t : bs) = do
+    -- calculate the size of the closure for this binding and allocate memory
+    -- on the STG heap and refer to it as `n'
+    let
+        s = closureSize lf
+
+    -- YOUR CODE HERE
+
+    -- generate the standard entry code for the closure
+    entry <- withNewLocalFunction n t (n ++ "_entry_") (standardEntry lf)
+
+    -- generate an info table on the C heap
+    tbl <- lift $ lift $ infoTbl n entry
+
+    -- write the closure on the heap
+    -- YOUR CODE HERE
+
+    -- continue with the other bindings
+    allocRecClosures bs
 
 pushArgs :: (Int, Int) -> [AAtom PolyType] -> CodeGenFn (Int, Int)
 pushArgs (v,p) []                 = return (v,p)
@@ -355,7 +380,7 @@ compExpr (LetE bs e _) = do
     compExpr e
 compExpr (LetRecE bs e _) = do
     -- allocate closures on the heap
-    allocClosures bs
+    allocRecClosures bs
 
     -- compile code for e
     compExpr e
