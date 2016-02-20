@@ -50,11 +50,13 @@ compProg (MkProg ts bs) = do
 
 -- | `compBinding b' generates code for a binding `b'.
 compBinding :: ABind PolyType -> CodeGen ()
-compBinding (MkBind (Var name t) lf _) = do
-    entry <- withNewNamedFunction (name ++ "_entry") (standardEntry lf)
-    tbl   <- infoTbl name entry
-    staticClosure name tbl (symbolsForFreeVars (map varName $ lfFreeVars lf))
-    return ()
+compBinding (MkBind (Var name t) lf pt)
+    | isPrimitive pt && name /= "main" = fail $ name ++ " has a primitive type!"
+    | otherwise = do
+        entry <- withNewNamedFunction (name ++ "_entry") (standardEntry lf)
+        tbl   <- infoTbl name entry
+        staticClosure name tbl (symbolsForFreeVars (map varName $ lfFreeVars lf))
+        return ()
 
 --------------------------------------------------------------------------------
 
@@ -196,48 +198,52 @@ restoreEnvironment fvs =
 --   bindings in `bs'
 allocClosures :: [ABind PolyType] -> CodeGenFn ()
 allocClosures [] = return ()
-allocClosures (MkBind (Var n _) lf t : bs) = do
-    -- generate the standard entry code for the closure
-    entry <- lift $ lift $
-        withNewFunction (n ++ "_entry_") (standardEntry lf)
+allocClosures (MkBind (Var n _) lf t : bs)
+    | isPrimitive t = fail $ n ++ " has a primitive type!"
+    | otherwise = do
+        -- generate the standard entry code for the closure
+        entry <- lift $ lift $
+            withNewFunction (n ++ "_entry_") (standardEntry lf)
 
-    -- generate an info table on the C heap
-    tbl <- lift $ lift $ infoTbl n entry
+        -- generate an info table on the C heap
+        tbl <- lift $ lift $ infoTbl n entry
 
-    -- calculate the size of the closure for this binding and allocate memory
-    -- on the STG heap and refer to it as `n'
-    let
-        s = closureSize lf
+        -- calculate the size of the closure for this binding and allocate memory
+        -- on the STG heap and refer to it as `n'
+        let
+            s = closureSize lf
 
-    -- write the closure on the heap
-    -- YOUR CODE HERE
+        -- write the closure on the heap
+        -- YOUR CODE HERE
 
-    -- continue with the other bindings
-    allocClosures bs
+        -- continue with the other bindings
+        allocClosures bs
 
 -- | `allocRecClosures bs' allocates dynamic closures on the STG heap for all
 --   bindings in `bs'
 allocRecClosures :: [ABind PolyType] -> CodeGenFn ()
 allocRecClosures [] = return ()
-allocRecClosures (MkBind (Var n _) lf t : bs) = do
-    -- calculate the size of the closure for this binding and allocate memory
-    -- on the STG heap and refer to it as `n'
-    let
-        s = closureSize lf
+allocRecClosures (MkBind (Var n _) lf t : bs)
+    | isPrimitive t = fail $ n ++ " has a primitive type!"
+    | otherwise = do
+        -- calculate the size of the closure for this binding and allocate memory
+        -- on the STG heap and refer to it as `n'
+        let
+            s = closureSize lf
 
-    -- YOUR CODE HERE
+        -- YOUR CODE HERE
 
-    -- generate the standard entry code for the closure
-    entry <- withNewLocalFunction n t (n ++ "_entry_") (standardEntry lf)
+        -- generate the standard entry code for the closure
+        entry <- withNewLocalFunction n t (n ++ "_entry_") (standardEntry lf)
 
-    -- generate an info table on the C heap
-    tbl <- lift $ lift $ infoTbl n entry
+        -- generate an info table on the C heap
+        tbl <- lift $ lift $ infoTbl n entry
 
-    -- write the closure on the heap
-    -- YOUR CODE HERE
+        -- write the closure on the heap
+        -- YOUR CODE HERE
 
-    -- continue with the other bindings
-    allocRecClosures bs
+        -- continue with the other bindings
+        allocRecClosures bs
 
 pushArgs :: (Int, Int) -> [AAtom PolyType] -> CodeGenFn (Int, Int)
 pushArgs (v,p) []                 = return (v,p)
