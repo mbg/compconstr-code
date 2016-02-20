@@ -1,0 +1,20 @@
+
+type Nat {} = Zero | Succ Nat;
+
+zero = {} \n {} -> Zero {};
+succ = {} \n {n} -> Succ {n};
+one = {} \n {} -> succ {zero};
+
+toPrim = {} \n {n} -> case n {} of
+    Zero {}  -> 0#;
+    Succ {m} -> case toPrim {m} of
+        k -> +# {1#,k};
+    default  -> 9001#;
+
+main = {} \n {} ->
+    letrec add = {} \n {n,m} -> case n {} of
+        Zero {}  -> m {};
+        Succ {k} -> let r = {add,k,m} \n {} -> add {k,m};
+                    in succ {r};
+        default -> m {};
+    in let two = {add} \n {} -> add {one,one}; in toPrim {two};

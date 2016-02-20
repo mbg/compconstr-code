@@ -206,15 +206,15 @@ type TyProg = AST PolyType
 inferTypes :: Prog -> Either TyError (TyProg, [Doc])
 inferTypes (MkProg ts bs) =
     do
-        ctx     <- initialContext M.empty ts
-        (rs,st) <- runHM (inferBindingGroups gs) ctx defaultState
+        ctx         <- initialContext M.empty ts
+        ((_,rs),st) <- runHM (inferBindingGroups gs) ctx defaultState
         return (MkProg ts rs, DL.toList $ tyInfStLogger st)
     where
         gs = bindingGroups bs
 
 -- |
-inferBindingGroups :: [[Bind]] -> HM [ABind PolyType]
-inferBindingGroups [] = return []
+inferBindingGroups :: [[Bind]] -> HM (Theta,[ABind PolyType])
+inferBindingGroups [] = return (M.empty,[])
 inferBindingGroups (bg:bgs) = do
     diagnostic $
         text "I am inferring the types of a binding group:" $$ nest 4 (pp bg)
@@ -253,10 +253,10 @@ inferBindingGroups (bg:bgs) = do
             zip (map (varName . bindName) bg') (map VarBinding pts)
 
     -- recursively infer the types of bindings in binding groups
-    bgs' <- withContext (M.union ctx') (inferBindingGroups bgs)
+    (s',bgs') <- withContext (M.union ctx') (inferBindingGroups bgs)
 
     -- return the combined bindings
-    return $ qbg ++ bgs'
+    return (s' <@> s, qbg ++ bgs')
 
 {-inferRecBindingTy :: (Bind, Type) -> HM (Theta, ABind Type)
 inferRecBindingTy (MkBind (Var v _) lf p, bt) = do
@@ -351,13 +351,30 @@ inferExprTy (LetE bs e p) = do
 
     return (s'', LetE pbs e' rt)
 inferExprTy (LetRecE bs e p) = do
+    -- report what we are doing
     diagnostic $
         text "I am inferring the types of bindings in a letrec expression:" $$
         nest 4 (pp bs)
 
-    vs <- mapM (const fresh) bs
+    -- infer the types of the bindings as a single binding group
+    (s,pbs) <- inferBindingGroups [bs]
 
-    return (undefined, LetRecE undefined undefined undefined)
+    let
+        ts  = zip (map (varName . bindName) pbs) (map (VarBinding . bindAnn) pbs)
+        ctx = M.union (M.fromList ts)
+
+    -- infer the type of the expression
+    (s', e') <- withContext (applyCtx s . ctx) (inferExprTy e)
+
+    let
+        s'' = s' <@> s
+        rt  = applyP s'' $ exprAnn e'
+
+    diagnostic $
+        text "I have inferred the type of a letrec expression as:" $$
+        nest 4 (pp rt)
+
+    return (s'', LetRecE pbs e' rt)
 inferExprTy (CaseE e alts p) = do
     -- infer the type of the expression that is examined by this
     -- case expression
