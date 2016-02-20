@@ -163,11 +163,11 @@ saveEnvironment fvs = go (0,0) vs
         go (v,p) ((n,t):as)
             | isPrimitive t = do
                 withVar n $ \sym -> writeStack ValStk v sym
-                trackStack ValStk n
+                trackStack ValStk v n
                 go (v+1,p) as
             | otherwise = do
                 withVar n $ \sym -> writeStack PtrStk p sym
-                trackStack PtrStk n
+                trackStack PtrStk p n
                 go (v,p+1) as
 
 restoreEnvironment :: LocalEnv -> CodeGenFn (Int,Int)

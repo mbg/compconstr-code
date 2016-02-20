@@ -231,11 +231,13 @@ trackHeap :: String -> CodeGenFn ()
 trackHeap n = modify $
     \s -> s { fnHeapTracked = M.insert n 0 (fnHeapTracked s) }
 
-trackStack :: Stack -> String -> CodeGenFn ()
-trackStack PtrStk n = modify $
-    \s -> s { fnPtrStackTracked = M.insert n 0 (fnPtrStackTracked s) }
-trackStack ValStk n = modify $
-    \s -> s { fnValStackTracked = M.insert n 0 (fnValStackTracked s) }
+-- | `trackStack s i n' tracks a location named `n' on the `s' stack
+--   at offset `i'
+trackStack :: Stack -> Int -> String -> CodeGenFn ()
+trackStack PtrStk i n = modify $
+    \s -> s { fnPtrStackTracked = M.insert n i (fnPtrStackTracked s) }
+trackStack ValStk i n = modify $
+    \s -> s { fnValStackTracked = M.insert n i (fnValStackTracked s) }
 
 data CodeGenVar
     = LocalVar (Symbol Local)
