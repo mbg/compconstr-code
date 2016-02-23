@@ -16,7 +16,12 @@
 #define STACK_SIZE 1024
 
 #define JUMP(lbl) return(lbl);
+
+#ifdef DEBUG
+#define ENTER(c) printf("ENTER(0x%p) => 0x%p\n", c, **c); JUMP(**c)
+#else
 #define ENTER(c) JUMP(**c)
+#endif
 
 typedef void* StgWord;
 
@@ -33,12 +38,18 @@ StgWord** Node;
 StgWord* RetVec;
 int Ret;
 
-/* Heap - grows from the bottom the top */
-StgWord Heap[HEAP_SIZE];
+/* Heap - grows from the top to the bottom */
+StgWord HeapA[HEAP_SIZE];
+StgWord HeapB[HEAP_SIZE];
+StgWord* Heap;
 StgWord* Hp;
 StgWord* HLimit;
 
 /* debugging helpers */
 void dump_val_stack();
+void dump_ptr_stack();
+void dump_heap();
+
+StgWord _forwarding_ptr_info[3];
 
 #endif

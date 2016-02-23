@@ -45,16 +45,18 @@ compProg (MkProg ts bs) = do
     buildCtrIndex ts
     let
         gs = map (varName . bindName) bs
+    evac <- compStaticEvac
     modify $ \s -> s { cGlobals = S.fromList gs }
-    mapM_ compBinding bs
+    mapM_ (compBinding evac) bs
 
 -- | `compBinding b' generates code for a binding `b'.
-compBinding :: ABind PolyType -> CodeGen ()
-compBinding (MkBind (Var name t) lf pt)
+compBinding :: Symbol Function -> ABind PolyType -> CodeGen ()
+compBinding evac (MkBind (Var name t) lf pt)
     | isPrimitive pt && name /= "main" = fail $ name ++ " has a primitive type!"
     | otherwise = do
         entry <- withNewNamedFunction (name ++ "_entry") (standardEntry lf)
-        tbl   <- infoTbl name entry
+        scav  <- compScavenge (lfFreeVars lf)
+        tbl   <- infoTbl name [entry, evac, scav]
         staticClosure name tbl (symbolsForFreeVars (map varName $ lfFreeVars lf))
         return ()
 
@@ -93,7 +95,7 @@ loadArgs (p,v) (Var n t : vs)
 standardEntry :: ALambdaForm PolyType -> CodeGenFn ()
 standardEntry (MkLambdaForm fvs uf vs e) = do
     -- register free variables in the current scope
-    registerFreeVars $ map varName fvs
+    registerFreeVars fvs
 
     -- generate the argument satisfaction check if there are arguments
 
@@ -101,6 +103,7 @@ standardEntry (MkLambdaForm fvs uf vs e) = do
     stackOverflowCheck
 
     -- heap overflow check
+    heapOverflowCheck (heapCost e)
 
     -- if updatable, replace info pointer with black hole
 
@@ -165,11 +168,11 @@ saveEnvironment fvs = go (0,0) vs
         go (v,p) ((n,t):as)
             | isPrimitive t = do
                 withVar n $ \sym -> writeStack ValStk v sym
-                trackStack ValStk v n
+                trackStack ValStk v n t
                 go (v+1,p) as
             | otherwise = do
                 withVar n $ \sym -> writeStack PtrStk p sym
-                trackStack PtrStk p n
+                trackStack PtrStk p n t
                 go (v,p+1) as
 
 restoreEnvironment :: LocalEnv -> CodeGenFn (Int,Int)
@@ -205,8 +208,14 @@ allocClosures (MkBind (Var n _) lf t : bs)
         entry <- lift $ lift $
             withNewFunction (n ++ "_entry_") (standardEntry lf)
 
+        -- generate the evacuation code
+        evac <- lift $ lift $ compEvac lf
+
+        -- generate the scavanging code
+        scav <- lift $ lift $ compScavenge (lfFreeVars lf)
+
         -- generate an info table on the C heap
-        tbl <- lift $ lift $ infoTbl n entry
+        tbl <- lift $ lift $ infoTbl n [entry, evac, scav]
 
         -- calculate the size of the closure for this binding and allocate memory
         -- on the STG heap and refer to it as `n'
@@ -236,8 +245,14 @@ allocRecClosures (MkBind (Var n _) lf t : bs)
         -- generate the standard entry code for the closure
         entry <- withNewLocalFunction n t (n ++ "_entry_") (standardEntry lf)
 
+        -- generate the evacuation code
+        evac <- lift $ lift $ compEvac lf
+
+        -- generate the scavanging code
+        scav <- lift $ lift $ compScavenge (lfFreeVars lf)
+
         -- generate an info table on the C heap
-        tbl <- lift $ lift $ infoTbl n entry
+        tbl <- lift $ lift $ infoTbl n [entry, evac, scav]
 
         -- write the closure on the heap
         -- YOUR CODE HERE
@@ -280,7 +295,9 @@ compPrimDefault env (DefaultVar v e t) = do
 -- | `compPrimAlt alt' generates code for a primitive case alternative `alt'.
 compPrimAlt :: LocalEnv -> APrimAlt PolyType -> CodeGenFn (PrimInt, Symbol Function)
 compPrimAlt env (PAlt k e t) = do
-    f <- withNewFunctionInScope "ret_prim_case_" (restoreEnvironment env >> compExpr e)
+    f <- withNewFunctionInScope "ret_prim_case_" $ do
+        restoreEnvironment env
+        compExpr e
     return (k,f)
 
 -- | `compReturn alts' generates a continuation for a case expression which
@@ -421,6 +438,11 @@ compExpr (CaseE e alts _) = do
 
     -- followed by the code for e
     compExpr e
+compExpr (AppE f [] t) | isPrimitive t =
+    -- this special rule for application assumes that variables of an entirely
+    -- primitive type (not functions returning a primitive type!) must not be
+    -- closures and are instead the values themselves
+    withVar (varName f) $ \sym -> writeRegister RetR sym
 compExpr (AppE f as _) = do
     -- push arguments onto the appropriate stacks and adjust the stack
     -- pointers accordingly
@@ -428,7 +450,7 @@ compExpr (AppE f as _) = do
 
     -- enter the closure pointed to by f
     withVar (varName f) $ \sym -> compEnter sym
-compExpr (CtrE c as _) = do
+compExpr (CtrE c as t) = do
     -- obtain the return vector from the value stack
     undefined
 
@@ -449,7 +471,7 @@ compExpr (CtrE c as _) = do
 
     case r of
         Nothing  -> error "Internal error: constructor not found"
-        (Just i) -> jump (IndexSym (RegisterSym RetVecR) i)
+        (Just i) -> jump (IndexSym (RegisterSym RetVecR) i (MonoTy $ AlgTy "_Cont"))
 compExpr (OpE op [x,y] _) = do
     -- pop the continuation off the pointer stack
 
@@ -467,5 +489,48 @@ compExpr (LitE v _) = do
 
     -- jump to the continuation
     jump k
+
+--------------------------------------------------------------------------------
+
+closureTy :: PolyType
+closureTy = MonoTy $ AlgTy "_Closure"
+
+compStaticEvac :: CodeGen (Symbol Function)
+compStaticEvac = withNewNamedFunction "_static_evac" $
+    returnSymbol (RegisterSym NodeR)
+
+-- | `compEvac` generates code for a closure's evacuation code.
+compEvac :: ALambdaForm PolyType -> CodeGen (Symbol Function)
+compEvac lf = withNewFunction "_evac_" $ do
+    -- 1. allocate memory for the closure represented by `lf' in the to-space
+    --    and assign an arbitrary name to that region in memory
+
+    -- 2. copy the current closure's (pointed to by Node) info pointer to the
+    --    new location in to-space
+
+    -- 3. copy the free variables of the current closure to the new location
+    --    in to-space
+
+    -- 4. overwrite the current closure (still pointed to by Node) with the
+    --    forwarding pointer. Note: the forwarding pointer expects that
+    --    the address of the closure in to-space is stored as a free variable
+    --    in the closure at offset 1.
+
+    -- 5. return the pointer to the location of the closure in to-space to
+    --    the calling C procedure
+
+    -- make the C compiler happy (remove this once you have implemented
+    -- your code generation code)
+    returnSymbol (PrimSym $ MkPrimInt 0)
+
+-- | `compScavenge vs` generates code for a closure's scavaging code.
+compScavenge :: [AVar PolyType] -> CodeGen (Symbol Function)
+compScavenge vs = withNewFunction "_scavage_" $ do
+    -- 1. back up the Node register
+
+    -- 2. call the evac and scavenging code for each pointer
+
+    -- return something to make gcc happy (don't remove this)
+    returnSymbol (RegisterSym NodeR)
 
 --------------------------------------------------------------------------------

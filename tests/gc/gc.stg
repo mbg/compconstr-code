@@ -1,0 +1,8 @@
+
+f = {} \n {id,i} -> case -# {i,1#} of
+                    0# -> 0#;
+                    j  -> let r = {id,j} \n {x} -> case +# {j,x} of
+                                v -> f {id,j};
+                          in r {1#};
+
+main = {} \n {} -> let id = {} \n {x} -> x {}; in f {id, 10000#};

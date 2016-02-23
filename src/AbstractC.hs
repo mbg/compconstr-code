@@ -16,10 +16,16 @@ import qualified Data.Map as M
 
 import Pretty
 import Prim
+import Var
 import AST
 import Types
 
 import Debug.Trace (trace)
+
+--------------------------------------------------------------------------------
+
+forwardPtrTbl :: Symbol InfoTbl
+forwardPtrTbl = InfoTblSym "_forwarding_ptr"
 
 --------------------------------------------------------------------------------
 
@@ -65,8 +71,11 @@ data Symbol (ty :: SymType) where
     FunctionSym :: String -> Symbol Function
     LocalSym    :: String -> PolyType -> Symbol Local
     RegisterSym :: Register -> Symbol 'Register
-    IndexSym    :: Symbol a -> Int -> Symbol Indexed
+    IndexSym    :: Symbol a -> Int -> PolyType -> Symbol Indexed
     PrimSym     :: PrimInt -> Symbol Prim
+
+funSymName :: Symbol Function -> String
+funSymName (FunctionSym n) = n
 
 -- | An "Abstract C" source file
 data AbstractC = AbstractC {
@@ -86,6 +95,7 @@ data Stmt
     = JumpStmt String
     | EnterStmt String
     | WriteRegisterStmt Register String
+    | WriteRegisterIStmt Register Int String
     | WriteStackStmt Stack Int String
     | LoadRegisterStmt Register Stack Int
     | LoadLocalStmt Stack Int String
@@ -97,9 +107,13 @@ data Stmt
     | LoadLocalHpStmt Int String
     | AdjustHpStmt Int
     | StackOverflowCheckStmt
+    | HeapOverflowCheckStmt Int
     | ReturnValStmt Int
     | PrimOpStmt PrimOp String String
     | CaseStmt [(PrimInt,String)] String
+    | CallEvacStmt (Symbol Local) Int
+    | CallScavStmt (Symbol Local) Int
+    | ReturnStmt String
     | TraceStmt String
 
 --------------------------------------------------------------------------------
@@ -166,9 +180,9 @@ staticClosure n (InfoTblSym tbl) fvs = do
     modify $ \s -> s { cClosures = M.insert n (ip:vp) (cClosures s) }
     return (ClosureSym n)
 
-infoTbl :: String -> Symbol Function -> CodeGen (Symbol InfoTbl)
-infoTbl n (FunctionSym f) = do
-    modify $ \s -> s { cInfoTbls = M.insert n [f] (cInfoTbls s) }
+infoTbl :: String -> [Symbol Function] -> CodeGen (Symbol InfoTbl)
+infoTbl n fs = do
+    modify $ \s -> s { cInfoTbls = M.insert n (map funSymName fs) (cInfoTbls s) }
     return (InfoTblSym n)
 
 returnVector :: [Symbol Function] -> CodeGenFn (Symbol RetVec)
@@ -194,12 +208,15 @@ withNewNamedFunction n k = do
 type CodeGenFn = WriterT [Stmt] (StateT FnState CodeGen)
 
 data FnState = MkFnSt {
-    fnFree            :: M.Map String Int,
+    fnFree            :: M.Map String (Int, PolyType),
     fnLocals          :: M.Map String PolyType,
-    fnHeapTracked     :: M.Map String Int,
-    fnPtrStackTracked :: M.Map String Int,
-    fnValStackTracked :: M.Map String Int
+    fnHeapTracked     :: M.Map String (Int, PolyType),
+    fnPtrStackTracked :: M.Map String (Int, PolyType),
+    fnValStackTracked :: M.Map String (Int, PolyType)
 } deriving Show
+
+initialFn :: FnState
+initialFn = MkFnSt M.empty M.empty M.empty M.empty M.empty
 
 localInfoTable :: String -> Symbol Function -> CodeGenFn (Symbol InfoTbl)
 localInfoTable tpl (FunctionSym f) = lift $ lift $ do
@@ -235,30 +252,20 @@ withNewFunctionInScope tpl k = do
     lift $ lift $ modify $ \s -> s { cFuns = M.insert n stmts (cFuns s) }
     return $ FunctionSym n
 
-initialFn :: FnState
-initialFn = MkFnSt M.empty M.empty M.empty M.empty M.empty
-
-registerFreeVars :: [String] -> CodeGenFn ()
+registerFreeVars :: [AVar PolyType] -> CodeGenFn ()
 registerFreeVars fvs = modify $ \s -> s { fnFree = vs }
     where
-        vs = M.fromList $ zip fvs [1..]
+        vs = M.fromList $ zip (map varName fvs) (zip [1..] (map varAnn fvs))
 
-trackHeap :: String -> CodeGenFn ()
-trackHeap n = modify $
-    \s -> s { fnHeapTracked = M.insert n 0 (fnHeapTracked s) }
+trackHeap :: String -> PolyType -> CodeGenFn ()
+trackHeap n pt = modify $
+    \s -> s { fnHeapTracked = M.insert n (0,pt) (fnHeapTracked s) }
 
--- | `trackStack s i n' tracks a location named `n' on the `s' stack
---   at offset `i'
-trackStack :: Stack -> Int -> String -> CodeGenFn ()
-trackStack PtrStk i n = modify $
-    \s -> s { fnPtrStackTracked = M.insert n i (fnPtrStackTracked s) }
-trackStack ValStk i n = modify $
-    \s -> s { fnValStackTracked = M.insert n i (fnValStackTracked s) }
-
-data CodeGenVar
-    = LocalVar (Symbol Local)
-    | FreeVar (Symbol Indexed)
-    | GlobalVar String
+trackStack :: Stack -> Int -> String -> PolyType -> CodeGenFn ()
+trackStack PtrStk i n pt = modify $
+    \s -> s { fnPtrStackTracked = M.insert n (i,pt) (fnPtrStackTracked s) }
+trackStack ValStk i n pt = modify $
+    \s -> s { fnValStackTracked = M.insert n (i,pt) (fnValStackTracked s) }
 
 withVar :: String -> (forall a.Symbol a -> CodeGenFn b) -> CodeGenFn b
 withVar n f = do
@@ -270,13 +277,13 @@ withVar n f = do
         Nothing ->
             -- 2. is it a free variable?
             case M.lookup n (fnFree st) of
-                Just i -> f $ IndexSym (RegisterSym NodeR) i
+                Just (i,pt) -> f $ IndexSym (RegisterSym NodeR) i pt
                 Nothing -> case M.lookup n (fnHeapTracked st) of
-                    Just i -> f $ IndexSym (RegisterSym HeapPtrR) i
+                    Just (i,pt) -> f $ IndexSym (RegisterSym HeapPtrR) i pt
                     Nothing -> case M.lookup n (fnPtrStackTracked st) of
-                        Just i  -> f $ IndexSym (RegisterSym PtrStkR) i
+                        Just (i,pt)  -> f $ IndexSym (RegisterSym PtrStkR) i pt
                         Nothing -> case M.lookup n (fnValStackTracked st) of
-                            Just i  -> f $ IndexSym (RegisterSym ValStkR) (negate i)
+                            Just (i,pt)  -> f $ IndexSym (RegisterSym ValStkR) (negate i) pt
                             Nothing -> do
                                 gs <- lift $ lift $ gets cGlobals
 
@@ -288,8 +295,14 @@ withVar n f = do
 stackOverflowCheck :: CodeGenFn ()
 stackOverflowCheck = tell [StackOverflowCheckStmt]
 
+heapOverflowCheck :: Int -> CodeGenFn ()
+heapOverflowCheck n = tell [HeapOverflowCheckStmt n]
+
 writeRegister :: Register -> Symbol a -> CodeGenFn ()
 writeRegister r sym = tell [WriteRegisterStmt r (render $ pp sym)]
+
+writeRegisterIx :: Register -> Int -> Symbol a -> CodeGenFn ()
+writeRegisterIx r ix sym = tell [WriteRegisterIStmt r ix (render $ pp sym)]
 
 writeStack :: Stack -> Int -> Symbol a -> CodeGenFn ()
 writeStack s i sym =
@@ -321,8 +334,8 @@ adjustStack :: Stack -> Int -> CodeGenFn ()
 adjustStack s n = do
     tell [AdjustStmt s n]
     case s of
-        PtrStk -> modify $ \s -> s { fnPtrStackTracked = M.map (flip (-) n) (fnPtrStackTracked s) }
-        ValStk -> modify $ \s -> s { fnValStackTracked = M.map (flip (-) n)(fnValStackTracked s) }
+        PtrStk -> modify $ \s -> s { fnPtrStackTracked = M.map (\(i,pt) -> (i-n,pt)) (fnPtrStackTracked s) }
+        ValStk -> modify $ \s -> s { fnValStackTracked = M.map (\(i,pt) -> (i-n,pt)) (fnValStackTracked s) }
 
 writeHeap :: Int -> Symbol a -> CodeGenFn ()
 writeHeap i sym = tell [WriteHpStmt i (render $ pp sym)]
@@ -333,16 +346,16 @@ loadLocalFromHeap i n t = do
     modify $ \s -> s { fnLocals = M.insert n t (fnLocals s) }
     return (LocalSym n t)
 
-allocMemory :: String -> Int -> CodeGenFn ()
-allocMemory v n = do
-    trackHeap v
-    modify $ \s -> s { fnHeapTracked = M.map (flip (-) n) (fnHeapTracked s) }
+allocMemory :: String -> Int -> PolyType -> CodeGenFn ()
+allocMemory v n pt = do
+    trackHeap v pt
+    modify $ \s -> s { fnHeapTracked = M.map (\(i,pt) -> (i-n,pt)) (fnHeapTracked s) }
     tell [AdjustHpStmt n]
 
 -- | `deallocateMemory n' deallocates `n' words on the heap.
 deallocateMemory :: Int -> CodeGenFn ()
 deallocateMemory n = do
-    modify $ \s -> s { fnHeapTracked = M.map (n +) (fnHeapTracked s) }
+    modify $ \s -> s { fnHeapTracked = M.map (\(i,pt) -> (n+i,pt)) (fnHeapTracked s) }
     tell [AdjustHpStmt (negate n)]
 
 jump :: Symbol a -> CodeGenFn ()
@@ -362,6 +375,15 @@ cases cs d = tell [CaseStmt [(i,render $ pp f) | (i,f) <- cs] (render $ pp d)]
 
 debug :: String -> CodeGenFn ()
 debug msg = tell [TraceStmt msg]
+
+callEvac :: Symbol Local -> Int -> CodeGenFn ()
+callEvac sym i = tell [CallEvacStmt sym i]
+
+callScav :: Symbol Local -> Int ->  CodeGenFn ()
+callScav sym i = tell [CallScavStmt sym i]
+
+returnSymbol :: Symbol a -> CodeGenFn ()
+returnSymbol sym = tell [ReturnStmt (render $ pp sym)]
 
 --------------------------------------------------------------------------------
 
@@ -437,23 +459,32 @@ instance PP (Symbol a) where
     pp (FunctionSym n) = text n
     pp (LocalSym n t) = text n <> text "/* :: " <> pp t <> text " */"
     pp (RegisterSym r) = pp r
-    pp (IndexSym (RegisterSym HeapPtrR) i) = char '&' <> text "Hp" <> brackets (int i)
-    pp (IndexSym s i) = pp s <> brackets (int i)
+    pp (IndexSym (RegisterSym HeapPtrR) i pt) = char '&' <> text "Hp" <> brackets (int i)
+    pp (IndexSym s i pt) = pp s <> brackets (int i)
     pp (PrimSym (MkPrimInt v)) = int v
 
 instance PP Stmt where
     pp (JumpStmt n) = text "JUMP" <> parens (text n) <> semi
     pp (EnterStmt n) = text "ENTER" <> parens (text n) <> semi
     pp StackOverflowCheckStmt = text "if (SpPtr > SpVal) { stack_overflow(); }"
+    pp (HeapOverflowCheckStmt n)
+        | n /= 0    = text "if (Hp +" <+> int n <> text " > HLimit) { run_gc(); }"
+        | otherwise = empty
     pp (WriteRegisterStmt r v) = pp r <+> equals <+> text v <> semi
-    pp (WriteStackStmt s i v) = pp s <> brackets (int i) <+> equals <+> text v <> semi
-    pp (LoadRegisterStmt r s i) = pp r <+> equals <+> pp s <> brackets (int i) <> semi
+    pp (WriteRegisterIStmt r ix v) =
+        pp r <> brackets (int ix) <+> equals <+> text v <> semi
+    pp (WriteStackStmt s i v) =
+        pp s <> brackets (int i) <+> equals <+> text v <> semi
+    pp (LoadRegisterStmt r s i) =
+        pp r <+> equals <+> pp s <> brackets (int i) <> semi
     pp (LocalFromSymbol sym n) =
         text "StgWord" <+> text n <+> equals <+>
         text sym <> semi
     pp (LoadLocalStmt s i n) =
         text "StgWord" <+> text n <+> equals <+>
         pp s <> brackets (int i) <> semi
+    pp (LocalFromRegisterStmt NodeR _ n) =
+        text "StgWord*" <+> text n <+> equals <+> pp NodeR <> semi
     pp (LocalFromRegisterStmt r _ n) =
         text "StgWord" <+> text n <+> equals <+>
         pp r <> semi
@@ -468,7 +499,8 @@ instance PP Stmt where
     pp (WriteHpStmt i s) =
         text "Hp" <> brackets (int $ negate i) <+> equals <+> text s <> semi
     pp (LoadLocalHpStmt i v) =
-        text "StgWord" <+> text v <+> equals <+> text "Hp" <> brackets (int i) <> semi
+        text "StgWord" <+> text v <+> equals <+>
+        text "Hp" <> brackets (int i) <> semi
     pp (AdjustHpStmt i)
         | i > 0     = text "Hp +=" <+> int i <> semi
         | i < 0     = text "Hp -=" <+> int (abs i) <> semi
@@ -484,6 +516,18 @@ instance PP Stmt where
         where
             ppSwCase (MkPrimInt k,f) = text "case" <+> int k <> colon <> nest 4 (pp (JumpStmt f) $$ text "break" <> semi)
             ppSwDefault = text "default:" <> nest 4 ((pp $ JumpStmt d) $$ text "break" <> semi)
+    pp (CallEvacStmt sym i) =
+        text "Node" <+> equals <+> parens (text "StgWord*") <> pp (IndexSym sym i undefined) <> semi $$
+        pp (IndexSym sym i undefined) <+> equals <+>
+        parens (parens (text "CodeLabel") <>
+            text "Node" <> brackets (int 0) <> brackets (int 1)) <>
+        parens empty <> semi
+    pp (CallEvacStmt sym i) =
+        text "Node" <+> equals <+> parens (text "StgWord*") <> pp (IndexSym sym i undefined) <> semi $$
+        parens (parens (text "CodeLabel") <>
+            text "Node" <> brackets (int 0) <> brackets (int 2)) <>
+        parens empty <> semi
+    pp (ReturnStmt sym) = text "return" <+> text sym <> semi
     pp (TraceStmt msg) = text "printf" <> parens (doubleQuotes $ text msg <> text "\\n") <> semi
 
 ppPrimOp :: PrimOp -> Doc

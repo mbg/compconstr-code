@@ -29,9 +29,3 @@ list1 = {} \n {} -> cons {one, empty};
 list = {} \n {} -> cons {one, list1};
 
 main = {} \n {} -> let sl = {} \u {} -> map {succ, list}; in length {sl};
-
-answer = {} \n {} -> 42#;
-
-checkAnswer = {} \n {} -> case answer {} of
-    42#     -> True {};
-    default -> False {};
