@@ -522,7 +522,7 @@ instance PP Stmt where
         parens (parens (text "CodeLabel") <>
             text "Node" <> brackets (int 0) <> brackets (int 1)) <>
         parens empty <> semi
-    pp (CallEvacStmt sym i) =
+    pp (CallScavStmt sym i) =
         text "Node" <+> equals <+> parens (text "StgWord*") <> pp (IndexSym sym i undefined) <> semi $$
         parens (parens (text "CodeLabel") <>
             text "Node" <> brackets (int 0) <> brackets (int 2)) <>
