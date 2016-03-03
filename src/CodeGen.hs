@@ -525,7 +525,7 @@ compEvac lf = withNewFunction "_evac_" $ do
 
 -- | `compScavenge vs` generates code for a closure's scavaging code.
 compScavenge :: [AVar PolyType] -> CodeGen (Symbol Function)
-compScavenge vs = withNewFunction "_scavage_" $ do
+compScavenge vs = withNewFunction "_scavenge_" $ do
     -- 1. back up the Node register
 
     -- 2. call the evac and scavenging code for each pointer
