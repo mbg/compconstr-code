@@ -67,7 +67,7 @@ executable stg
 
   -- Other library packages from which modules are imported.
   build-depends:       array >=0.5,
-                       base >=4.7 && <4.9,
+                       base >=4.7,
                        containers >=0.5,
                        dlist >=0.7,
                        pretty >=1.1,
