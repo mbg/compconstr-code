@@ -45,13 +45,9 @@ extra-source-files:  README.md
 -- Constraint on the version of Cabal needed to build this package.
 cabal-version:       >=1.10
 
-
-executable stg
-  -- .hs or .lhs file containing the Main module.
-  main-is:             Main.hs
-
+library
   -- Modules included in this executable, other than Main.
-  other-modules:       AST,
+  exposed-modules:     AST,
                        CmdArgs,
                        Lexer,
                        P,
@@ -75,4 +71,40 @@ executable stg
   hs-source-dirs:      src
 
   -- Base language which the package is written in.
+  default-language:    Haskell2010
+
+executable stg-exe
+  -- .hs or .lhs file containing the Main module.
+  main-is:             Main.hs
+
+  -- Other library packages from which modules are imported.
+  build-depends:       array >=0.5,
+                       base >=4.7,
+                       dlist >=0.7,
+                       pretty >=1.1,
+                       optparse-applicative >=0.12,
+                       stg
+
+  -- Directories containing source files.
+  hs-source-dirs:      app
+
+  -- Base language which the package is written in.
+  default-language:    Haskell2010
+
+test-suite spec
+  type:                exitcode-stdio-1.0
+
+  main-is:             Spec.hs
+
+  other-modules:       ParserSpec
+
+  build-depends:       base >=4.7,
+                       stg,
+                       hspec,
+                       directory,
+                       strict,
+                       filepath
+
+  hs-source-dirs:      test
+
   default-language:    Haskell2010
