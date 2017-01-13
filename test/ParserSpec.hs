@@ -9,6 +9,8 @@ module ParserSpec where
 
 import GHC.IO.Handle
 
+import Control.Exception
+
 import System.IO
 import qualified System.IO.Strict as SIO
 import System.Directory
@@ -31,7 +33,7 @@ capture m = do
     stdout'      <- hDuplicate stdout
     hDuplicateTo tmph stdout
     hClose tmph
-    m
+    m `catch` (\e -> print (e :: SomeException))
     hDuplicateTo stdout' stdout
     str <- SIO.readFile tmpf
     removeFile tmpf

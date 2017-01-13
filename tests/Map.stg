@@ -4,4 +4,4 @@ map = {} \n {f,xs} ->
             Cons {y,ys} -> let fy = {f,y} \u {} -> f {y};
                                mfy = {f,ys} \u {} -> map {f,ys};
                                in Cons {fy,mfy};
-            default     -> undefined {};
+            default     -> Nil {};
