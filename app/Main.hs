@@ -41,15 +41,16 @@ confirm k = do
 --   transition to a new configuration; if successful, it will call itself
 --   recursively with the new configuration. If unsuccessful, it will
 --   terminate.
-steps :: Config -> IO ()
-steps cfg = do
+steps :: Bool -> Config -> IO ()
+steps quiet cfg = do
     -- print the current configuration
     putStrLn $ render $ ppConfig cfg
 
     -- try to transition to the next
     case step cfg of
         Nothing     -> putStrLn "Can't reduce further."
-        (Just cfg') -> confirm (steps cfg')
+        (Just cfg') -> if quiet then steps quiet cfg'
+                       else confirm (steps quiet cfg')
 
 -- | The main entry point for the compiler.
 main :: IO ()
@@ -84,7 +85,7 @@ main = do
                 putStrLn $ render $
                     text "Evaluating" <+> text input <+> text "..."
 
-                steps $ initialState ast (argsEntry args)
+                steps (argsQuiet args) $ initialState ast (argsEntry args)
 
     -- do nothing
     return ()
