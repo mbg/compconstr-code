@@ -20,6 +20,7 @@ import Test.Hspec
 
 import Pretty
 import Parser
+import Interpreter
 
 --------------------------------------------------------------------------------
 
@@ -41,6 +42,16 @@ capture m = do
 
 --------------------------------------------------------------------------------
 
+steps :: Config -> IO ()
+steps cfg = do
+    -- print the current configuration
+    putStrLn $ render $ ppConfig cfg
+
+    -- try to transition to the next
+    case step cfg of
+        Nothing     -> putStrLn "Can't reduce further."
+        (Just cfg') -> steps cfg'
+
 driver :: FilePath -> IO ()
 driver input = do
     putStrLn $ render $ text "Parsing" <+> text input <> text "..."
@@ -50,7 +61,16 @@ driver input = do
 
     case r of
         Left err  -> putStrLn err
-        Right ast -> putStrLn $ render $ pp ast
+        Right ast -> do
+            -- render the AST
+            putStrLn $ render $ pp ast
+            putStrLn ""
+
+            -- reduce the entry point
+            putStrLn $ render $
+                text "Evaluating" <+> text input <+> text "..."
+
+            steps $ initialState ast "main"
 
 
 parseTest :: FilePath -> Expectation

@@ -5,3 +5,444 @@ Parsing tests/Map.stg...
                                               <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
                                               <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
                            <7:13>default -> <7:28>Nil {}
+<9:1>zero = {} \n {} -> <9:20>Zero {}
+<10:1>succ = {} \n {n} -> <10:21>Succ {<10:27>n}
+<12:1>one = {} \n {} -> <12:20>succ {<12:26>zero}
+<13:1>two = {} \n {} -> <13:20>succ {<13:26>one}
+<15:1>empty = {} \n {} -> <15:21>Nil {}
+<16:1>cons = {} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}
+<18:1>list = {} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}
+<20:1>main = {} \n {} -> <20:20>map {<20:25>succ,<20:31>list}
+
+Evaluating tests/Map.stg ...
+(Eval (<No Position>main {}) {},
+ [],
+ [],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+(Enter Addr 8,
+ [],
+ [],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+(Eval (<20:20>map {<20:25>succ,<20:31>list}) {},
+ [],
+ [],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+(Enter Addr 0,
+ [Addr 2, Addr 7],
+ [],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+(Eval (<2:9>case <2:14>xs {} of
+       <3:13>Nil -> <3:28>Nil {};
+       <4:13>Cons y ys -> <4:28>let
+                          <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                          <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+       <7:13>default -> <7:28>Nil {}) {f -> Addr 2,
+                                       xs -> Addr 7},
+ [],
+ [],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+(Eval (<2:14>xs {}) {f -> Addr 2,
+                     xs -> Addr 7},
+ [],
+ [(<3:13>Nil -> <3:28>Nil {};
+   <4:13>Cons y ys -> <4:28>let
+                      <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                      <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+   <7:13>default -> <7:28>Nil {},{f -> Addr 2,
+                                  xs -> Addr 7})],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+(Enter Addr 7,
+ [],
+ [(<3:13>Nil -> <3:28>Nil {};
+   <4:13>Cons y ys -> <4:28>let
+                      <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                      <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+   <7:13>default -> <7:28>Nil {},{f -> Addr 2,
+                                  xs -> Addr 7})],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+(Eval (<18:20>cons {<18:26>one,<18:31>empty}) {},
+ [],
+ [(<3:13>Nil -> <3:28>Nil {};
+   <4:13>Cons y ys -> <4:28>let
+                      <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                      <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+   <7:13>default -> <7:28>Nil {},{f -> Addr 2,
+                                  xs -> Addr 7})],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+(Enter Addr 6,
+ [Addr 3, Addr 5],
+ [(<3:13>Nil -> <3:28>Nil {};
+   <4:13>Cons y ys -> <4:28>let
+                      <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                      <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+   <7:13>default -> <7:28>Nil {},{f -> Addr 2,
+                                  xs -> Addr 7})],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+(Eval (<16:25>Cons {<16:31>x,<16:33>xs}) {x -> Addr 3,
+                                          xs -> Addr 5},
+ [],
+ [(<3:13>Nil -> <3:28>Nil {};
+   <4:13>Cons y ys -> <4:28>let
+                      <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                      <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+   <7:13>default -> <7:28>Nil {},{f -> Addr 2,
+                                  xs -> Addr 7})],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+(ReturnCon Cons [Addr 3, Addr 5],
+ [],
+ [(<3:13>Nil -> <3:28>Nil {};
+   <4:13>Cons y ys -> <4:28>let
+                      <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                      <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+   <7:13>default -> <7:28>Nil {},{f -> Addr 2,
+                                  xs -> Addr 7})],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+(Eval (<4:28>let
+       <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+       <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy}) {f -> Addr 2,
+                                                                                                     xs -> Addr 7,
+                                                                                                     y -> Addr 3,
+                                                                                                     ys -> Addr 5},
+ [],
+ [],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+(Eval (<6:35>Cons {<6:41>fy,<6:44>mfy}) {f -> Addr 2,
+                                         fy -> Addr 9,
+                                         mfy -> Addr 10,
+                                         xs -> Addr 7,
+                                         y -> Addr 3,
+                                         ys -> Addr 5},
+ [],
+ [],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) [],
+  Addr 9 -> ({f,y} \u {} -> <4:52>f {<4:55>y}) [],
+  Addr 10 -> ({f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+(ReturnCon Cons [Addr 9, Addr 10],
+ [],
+ [],
+ [],
+ {Addr 0 -> ({} \n {f,xs} -> <2:9>case <2:14>xs {} of
+                             <3:13>Nil -> <3:28>Nil {};
+                             <4:13>Cons y ys -> <4:28>let
+                                                <4:32>fy = {f,y} \u {} -> <4:52>f {<4:55>y};
+                                                <5:32>mfy = {f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys} in <6:35>Cons {<6:41>fy,<6:44>mfy};
+                             <7:13>default -> <7:28>Nil {}) [],
+  Addr 1 -> ({} \n {} -> <9:20>Zero {}) [],
+  Addr 2 -> ({} \n {n} -> <10:21>Succ {<10:27>n}) [],
+  Addr 3 -> ({} \n {} -> <12:20>succ {<12:26>zero}) [],
+  Addr 4 -> ({} \n {} -> <13:20>succ {<13:26>one}) [],
+  Addr 5 -> ({} \n {} -> <15:21>Nil {}) [],
+  Addr 6 -> ({} \n {x,xs} -> <16:25>Cons {<16:31>x,<16:33>xs}) [],
+  Addr 7 -> ({} \n {} -> <18:20>cons {<18:26>one,<18:31>empty}) [],
+  Addr 8 -> ({} \n {} -> <20:20>map {<20:25>succ,<20:31>list}) [],
+  Addr 9 -> ({f,y} \u {} -> <4:52>f {<4:55>y}) [],
+  Addr 10 -> ({f,ys} \u {} -> <5:54>map {<5:59>f,<5:61>ys}) []},
+ {cons -> Addr 6,
+  empty -> Addr 5,
+  list -> Addr 7,
+  main -> Addr 8,
+  map -> Addr 0,
+  one -> Addr 3,
+  succ -> Addr 2,
+  two -> Addr 4,
+  zero -> Addr 1})
+Can't reduce further.
