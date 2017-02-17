@@ -97,6 +97,7 @@ executable stg-exe
   build-depends:       array >=0.5,
                        base >=4.7,
                        dlist >=0.7,
+                       filepath >=1.4,
                        pretty >=1.1,
                        optparse-applicative >=0.12,
                        stg
