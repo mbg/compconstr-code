@@ -54,6 +54,7 @@ library
                        CmdArgs,
                        CodeGen,
                        CodeGenAnalysis,
+                       Driver,
                        FreeVars,
                        Interpreter,
                        Lexer,
