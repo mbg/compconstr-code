@@ -217,7 +217,7 @@ fromTCtr (TCtr ctr, _) = ctr
 -- | `lexer f' invokes the lexer with continuation `f'
 lexer :: (TokenP -> P a) -> P a
 lexer f = MkP $ \s -> case runAlexFrom alexMonadScan s of
-    (Left err)     -> error err
+    (Left err)     -> Left err
     (Right (s',t)) -> let (MkP m) = f t in m s'
 
 }

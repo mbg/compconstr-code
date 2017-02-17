@@ -20,7 +20,8 @@ data CmdArgs = MkCmdArgs {
     argsEntry     :: String,
     argsVerbose   :: Bool,
     argsInterpret :: Bool,
-    argsDebug     :: Bool
+    argsDebug     :: Bool,
+    argsQuiet     :: Bool
 }
 
 cmdArgsP :: Parser CmdArgs
@@ -38,6 +39,8 @@ cmdArgsP = MkCmdArgs
                 help "Interprets the file")
     <*> switch (long "debug" <>
                 help "Debug the compiler")
+    <*> switch (long "no-stdin" <>
+                help "Tells the compiler that no stdin is available/usable.")
 
 cmdArgsOpts :: ParserInfo CmdArgs
 cmdArgsOpts = info (helper <*> cmdArgsP) fullDesc
