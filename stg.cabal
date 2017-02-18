@@ -119,14 +119,13 @@ test-suite spec
 
   main-is:             Spec.hs
 
-  other-modules:       ParserSpec
-
   build-depends:       base >=4.7,
                        stg,
                        hspec,
                        directory,
                        strict,
-                       filepath
+                       filepath,
+                       process
 
   hs-source-dirs:      test
 
