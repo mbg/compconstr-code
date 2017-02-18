@@ -16,6 +16,7 @@ import qualified Data.Map as M
 
 import Pretty
 import Prim
+import Var
 import AST
 import Types
 
@@ -65,8 +66,11 @@ data Symbol (ty :: SymType) where
     FunctionSym :: String -> Symbol Function
     LocalSym    :: String -> PolyType -> Symbol Local
     RegisterSym :: Register -> Symbol 'Register
-    IndexSym    :: Symbol a -> Int -> Symbol Indexed
+    IndexSym    :: Symbol a -> Int -> PolyType -> Symbol Indexed
     PrimSym     :: PrimInt -> Symbol Prim
+
+funSymName :: Symbol Function -> String
+funSymName (FunctionSym n) = n
 
 -- | An "Abstract C" source file
 data AbstractC = AbstractC {
@@ -194,11 +198,11 @@ withNewNamedFunction n k = do
 type CodeGenFn = WriterT [Stmt] (StateT FnState CodeGen)
 
 data FnState = MkFnSt {
-    fnFree            :: M.Map String Int,
+    fnFree            :: M.Map String (Int, PolyType),
     fnLocals          :: M.Map String PolyType,
-    fnHeapTracked     :: M.Map String Int,
-    fnPtrStackTracked :: M.Map String Int,
-    fnValStackTracked :: M.Map String Int
+    fnHeapTracked     :: M.Map String (Int, PolyType),
+    fnPtrStackTracked :: M.Map String (Int, PolyType),
+    fnValStackTracked :: M.Map String (Int, PolyType)
 } deriving Show
 
 localInfoTable :: String -> Symbol Function -> CodeGenFn (Symbol InfoTbl)
@@ -238,22 +242,22 @@ withNewFunctionInScope tpl k = do
 initialFn :: FnState
 initialFn = MkFnSt M.empty M.empty M.empty M.empty M.empty
 
-registerFreeVars :: [String] -> CodeGenFn ()
+registerFreeVars :: [AVar PolyType] -> CodeGenFn ()
 registerFreeVars fvs = modify $ \s -> s { fnFree = vs }
     where
-        vs = M.fromList $ zip fvs [1..]
+        vs = M.fromList $ zip (map varName fvs) (zip [1..] (map varAnn fvs))
 
-trackHeap :: String -> CodeGenFn ()
-trackHeap n = modify $
-    \s -> s { fnHeapTracked = M.insert n 0 (fnHeapTracked s) }
+trackHeap :: String -> PolyType -> CodeGenFn ()
+trackHeap n pt = modify $
+    \s -> s { fnHeapTracked = M.insert n (0,pt) (fnHeapTracked s) }
 
 -- | `trackStack s i n' tracks a location named `n' on the `s' stack
 --   at offset `i'
-trackStack :: Stack -> Int -> String -> CodeGenFn ()
-trackStack PtrStk i n = modify $
-    \s -> s { fnPtrStackTracked = M.insert n i (fnPtrStackTracked s) }
-trackStack ValStk i n = modify $
-    \s -> s { fnValStackTracked = M.insert n i (fnValStackTracked s) }
+trackStack :: Stack -> Int -> String -> PolyType -> CodeGenFn ()
+trackStack PtrStk i n pt = modify $
+    \s -> s { fnPtrStackTracked = M.insert n (i,pt) (fnPtrStackTracked s) }
+trackStack ValStk i n pt = modify $
+    \s -> s { fnValStackTracked = M.insert n (i,pt) (fnValStackTracked s) }
 
 data CodeGenVar
     = LocalVar (Symbol Local)
@@ -270,13 +274,13 @@ withVar n f = do
         Nothing ->
             -- 2. is it a free variable?
             case M.lookup n (fnFree st) of
-                Just i -> f $ IndexSym (RegisterSym NodeR) i
+                Just (i,pt) -> f $ IndexSym (RegisterSym NodeR) i pt
                 Nothing -> case M.lookup n (fnHeapTracked st) of
-                    Just i -> f $ IndexSym (RegisterSym HeapPtrR) i
+                    Just (i,pt) -> f $ IndexSym (RegisterSym HeapPtrR) i pt
                     Nothing -> case M.lookup n (fnPtrStackTracked st) of
-                        Just i  -> f $ IndexSym (RegisterSym PtrStkR) i
+                        Just (i,pt)  -> f $ IndexSym (RegisterSym PtrStkR) i pt
                         Nothing -> case M.lookup n (fnValStackTracked st) of
-                            Just i  -> f $ IndexSym (RegisterSym ValStkR) (negate i)
+                            Just (i,pt)  -> f $ IndexSym (RegisterSym ValStkR) (negate i) pt
                             Nothing -> do
                                 gs <- lift $ lift $ gets cGlobals
 
@@ -321,8 +325,8 @@ adjustStack :: Stack -> Int -> CodeGenFn ()
 adjustStack s n = do
     tell [AdjustStmt s n]
     case s of
-        PtrStk -> modify $ \s -> s { fnPtrStackTracked = M.map (flip (-) n) (fnPtrStackTracked s) }
-        ValStk -> modify $ \s -> s { fnValStackTracked = M.map (flip (-) n)(fnValStackTracked s) }
+        PtrStk -> modify $ \s -> s { fnPtrStackTracked = M.map (\(i,pt) -> (i-n,pt)) (fnPtrStackTracked s) }
+        ValStk -> modify $ \s -> s { fnValStackTracked = M.map (\(i,pt) -> (i-n,pt)) (fnValStackTracked s) }
 
 writeHeap :: Int -> Symbol a -> CodeGenFn ()
 writeHeap i sym = tell [WriteHpStmt i (render $ pp sym)]
@@ -333,16 +337,16 @@ loadLocalFromHeap i n t = do
     modify $ \s -> s { fnLocals = M.insert n t (fnLocals s) }
     return (LocalSym n t)
 
-allocMemory :: String -> Int -> CodeGenFn ()
-allocMemory v n = do
-    trackHeap v
-    modify $ \s -> s { fnHeapTracked = M.map (flip (-) n) (fnHeapTracked s) }
+allocMemory :: String -> Int -> PolyType -> CodeGenFn ()
+allocMemory v n pt = do
+    trackHeap v pt
+    modify $ \s -> s { fnHeapTracked = M.map (\(i,pt) -> (i-n,pt)) (fnHeapTracked s) }
     tell [AdjustHpStmt n]
 
 -- | `deallocateMemory n' deallocates `n' words on the heap.
 deallocateMemory :: Int -> CodeGenFn ()
 deallocateMemory n = do
-    modify $ \s -> s { fnHeapTracked = M.map (n +) (fnHeapTracked s) }
+    modify $ \s -> s { fnHeapTracked = M.map (\(i,pt) -> (n+i,pt)) (fnHeapTracked s) }
     tell [AdjustHpStmt (negate n)]
 
 jump :: Symbol a -> CodeGenFn ()
@@ -437,8 +441,8 @@ instance PP (Symbol a) where
     pp (FunctionSym n) = text n
     pp (LocalSym n t) = text n <> text "/* :: " <> pp t <> text " */"
     pp (RegisterSym r) = pp r
-    pp (IndexSym (RegisterSym HeapPtrR) i) = char '&' <> text "Hp" <> brackets (int i)
-    pp (IndexSym s i) = pp s <> brackets (int i)
+    pp (IndexSym (RegisterSym HeapPtrR) i pt) = char '&' <> text "Hp" <> brackets (int i)
+    pp (IndexSym s i pt) = pp s <> brackets (int i)
     pp (PrimSym (MkPrimInt v)) = int v
 
 instance PP Stmt where

@@ -93,7 +93,7 @@ loadArgs (p,v) (Var n t : vs)
 standardEntry :: ALambdaForm PolyType -> CodeGenFn ()
 standardEntry (MkLambdaForm fvs uf vs e) = do
     -- register free variables in the current scope
-    registerFreeVars $ map varName fvs
+    registerFreeVars fvs
 
     -- generate the argument satisfaction check if there are arguments
 
@@ -165,11 +165,11 @@ saveEnvironment fvs = go (0,0) vs
         go (v,p) ((n,t):as)
             | isPrimitive t = do
                 withVar n $ \sym -> writeStack ValStk v sym
-                trackStack ValStk v n
+                trackStack ValStk v n t
                 go (v+1,p) as
             | otherwise = do
                 withVar n $ \sym -> writeStack PtrStk p sym
-                trackStack PtrStk p n
+                trackStack PtrStk p n t
                 go (v,p+1) as
 
 restoreEnvironment :: LocalEnv -> CodeGenFn (Int,Int)
@@ -421,6 +421,11 @@ compExpr (CaseE e alts _) = do
 
     -- followed by the code for e
     compExpr e
+compExpr (AppE f [] t) | isPrimitive t =
+    -- this special rule for application assumes that variables of an entirely
+    -- primitive type (not functions returning a primitive type!) must not be
+    -- closures and are instead the values themselves
+    withVar (varName f) $ \sym -> writeRegister RetR sym
 compExpr (AppE f as _) = do
     -- push arguments onto the appropriate stacks and adjust the stack
     -- pointers accordingly
@@ -428,7 +433,7 @@ compExpr (AppE f as _) = do
 
     -- enter the closure pointed to by f
     withVar (varName f) $ \sym -> compEnter sym
-compExpr (CtrE c as _) = do
+compExpr (CtrE c as t) = do
     -- obtain the return vector from the value stack
     undefined
 
@@ -449,7 +454,7 @@ compExpr (CtrE c as _) = do
 
     case r of
         Nothing  -> error "Internal error: constructor not found"
-        (Just i) -> jump (IndexSym (RegisterSym RetVecR) i)
+        (Just i) -> jump (IndexSym (RegisterSym RetVecR) i (MonoTy $ AlgTy "_Cont"))
 compExpr (OpE op [x,y] _) = do
     -- pop the continuation off the pointer stack
 

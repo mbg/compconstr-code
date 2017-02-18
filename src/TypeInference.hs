@@ -304,12 +304,15 @@ inferLambdaTy (MkLambdaForm fvs uf vs e) = do
         text "[Lambda] I have inferred the type of a lambda form as:" $$
         nest 4 (pp rt)
 
+    mbs <- mapM (lookupType . varName) fvs
+
     -- annotate the parameters with their respective types
     let
         vs'  = [Var v (applyP s t) | (Var v _, t) <- zip vs ts]
+        fvs' = [Var v t | (Var v _, Just (VarBinding t)) <- zip fvs mbs]
 
     -- return the typed lambda form
-    return (s, MkLambdaForm fvs uf vs' e', rt)
+    return (s, MkLambdaForm fvs' uf vs' e', rt)
 
 -- | `inferExprTy e' infers the type of an expression `e'
 inferExprTy :: Expr -> HM (Theta, AExpr PolyType)

@@ -57,7 +57,7 @@ type LambdaForm = ALambdaForm Posn
 
 -- | Lambda forms.
 data ALambdaForm a = MkLambdaForm {
-    lfFreeVars :: [AVar Posn],
+    lfFreeVars :: [AVar a],
     lfFlag     :: UpdateFlag,
     lfVars     :: [AVar a],
     lfExpr     :: AExpr a
